@@ -1,0 +1,12 @@
+product:
+  name: Product Team
+  mode: coordinate
+  model_id: gemini-2.5-flash
+  success_criteria: Complete structured product data extracted for the company
+  instructions:
+    - "Your mission is to return complete structured data about the products offered by the specified company."
+    - "You must coordinate among the agents to search, crawl, and scrape for relevant product information."
+  show_tool_calls: true
+  show_members_responses: true
+  markdown: false
+  debug_mode: true
