@@ -1,8 +1,8 @@
-from core.models.product import ExtractionOutput
-from core.models.websites import CrawledURLsList, WebPageCollection
+from core.models.products import Product
+from core.models.websites import CrawledPage, WebPageList
 
 __all__ = [
-    "WebPageCollection",
-    "CrawledURLsList",
-    "ExtractionOutput",
+    "WebPageList",
+    "CrawledPage",
+    "Product",
 ]

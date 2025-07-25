@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import List
+from typing import List, Optional
 
 from pydantic import BaseModel, Field
 
@@ -10,12 +10,16 @@ class WebPage(BaseModel):
 
     url: str = Field(..., description="The full URL of the webpage")
     title: str = Field(..., description="The title of the webpage")
+    snippet: Optional[str] = Field(
+        None,
+        description="Optional preview text or snippet from the search result, if available.",
+    )
 
 
-class WebPageCollection(BaseModel):
+class WebPageList(BaseModel):
     """Holds exactly five webpages returned by the web search agent."""
 
-    webpages: List[WebPage] = Field(
+    results: List[WebPage] = Field(
         ...,
         min_items=5,
         max_items=5,
@@ -23,16 +27,28 @@ class WebPageCollection(BaseModel):
     )
 
 
-class CrawledURLs(BaseModel):
+class CrawledPage(BaseModel):
+    """Represents a discovered page during the crawling process."""
+
     url: str = Field(..., description="The discovered URL from the crawling process")
-    score: float = Field(
+    relevance_score: float = Field(
         ...,
-        description="Relevance score assigned by the URL scorer, used for prioritization in crawling strategies",
+        description="Score assigned to this URL indicating its estimated relevance to the target schema.",
+    )
+    parent_url: str = Field(
+        ...,
+        description="The URL from which this page was discovered (used to preserve crawl lineage).",
     )
 
 
-class CrawledURLsList(BaseModel):
-    urls: List[CrawledURLs] = Field(
+class CrawledPageList(BaseModel):
+    """List of discovered pages with associated scores."""
+
+    pages: List[CrawledPage] = Field(
         default_factory=list,
-        description="List of discovered URLs with their associated scores",
+        description="List of discovered pages with their associated relevance scores.",
+    )
+    source_domain: Optional[str] = Field(
+        ...,
+        description="The top-level domain these pages were discovered from (used for domain-level policies).",
     )
