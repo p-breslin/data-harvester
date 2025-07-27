@@ -31,7 +31,7 @@ MAX_PAGES = 2
 
 
 async def crawl4ai_deep_crawl(start_url: str, mode: str) -> List[dict]:
-    """Uses Crawl4AI to crawl a website starting from the given page.
+    """Performs a Crawl4AI deep crawl on a website starting from the given page.
 
     Args:
         start_url (str): The URL to start crawling from.
@@ -124,13 +124,12 @@ async def crawl4ai_deep_crawl(start_url: str, mode: str) -> List[dict]:
 
 
 @tool(
-    name="web_crawl",
-    description="Web crawling tool",
+    name="deep_crawl",
+    description="Deep crawling tool",
     show_result=True,
 )
-async def crawl_tool(start_url: str, mode: str) -> str:
-    """
-    Crawl a website to find relevant URLs.
+async def deep_crawl_tool(start_url: str, mode: str) -> str:
+    """Performs a deep crawl on a website to find relevant URLs.
 
     Args:
         start_url (str): The URL to start crawling from.
