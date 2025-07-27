@@ -9,7 +9,7 @@ load_dotenv()
 
 
 @tool(
-    name="web_search",
+    name="search_tool",
     description="Tool for searching the internet",
     show_result=True,
 )

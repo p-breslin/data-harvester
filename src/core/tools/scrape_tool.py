@@ -23,7 +23,7 @@ MODEL_MAP = {"product": ExtractionOutput}
 
 
 @tool(
-    name="web_scraper",
+    name="scrape_tool",
     description="Web scraping with Crawl4AI",
     show_result=True,
 )
