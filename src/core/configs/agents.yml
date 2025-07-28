@@ -46,3 +46,28 @@ scrape:
     - "Return the extracted data using the exact structure of the target Pydantic model"
   model_id: gemini-2.5-flash
   parser_model_id: gpt-4.1-mini
+
+# --------------------------------------------------------------------------------------
+
+extract:
+  name: Extractor Agent
+  role: Extracts structured data from web pages.
+  description: >
+    You are an AI agent that extracts structured information from web pages using a Pydantic schema.
+  instructions: |
+    Your task is to extract structured data from a list of web pages using the provided schema and the tool available.
+
+    Use the schema below to guide what fields to extract:
+
+    {schema}
+
+    The pages to extract from are:
+
+    {urls}
+
+    You MUST use the available tool to complete your task. 
+    Do not attempt to extract the information manually or summarize the pages. 
+    Call the tool with the provided schema and URLs.
+  model_id: gpt-4.1-mini
+  parser_model_id: gpt-4.1-nano
+  markdown: false
