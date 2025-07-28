@@ -29,12 +29,18 @@ def load_yaml(file, key=None):
         dict | Any: Parsed YAML contents, or the sub-dictionary at `key` if specified.
     """
     try:
-        path = CONFIG_DIR / f"{file}.yaml"
+        # Support both .yaml and .yml extensions
+        files = [CONFIG_DIR / f"{file}.yaml", CONFIG_DIR / f"{file}.yml"]
+        path = next((p for p in files if p.exists()), None)
+        if not path:
+            raise FileNotFoundError(
+                f"No YAML file found for '{file}' with .yaml or .yml extension."
+            )
+
         with open(path, "r") as f:
-            if key:
-                return yaml.safe_load(f)[key]
-            else:
-                return yaml.safe_load(f)
+            data = yaml.safe_load(f)
+            return data[key] if key else data
+
     except Exception as e:
         log.error(f"Error loading {file}: {e}")
 
@@ -244,3 +250,26 @@ def get_arango_db() -> StandardDatabase:
     password = os.getenv("ARANGO_PASSWORD")
     db_name = os.getenv("ARANGO_DB")
     return client.db(db_name, username=username, password=password)
+
+
+def resolve_api_key(provider: str) -> str | None:
+    """Resolves the appropriate API key from the environment based on the LLM provider.
+
+    Args:
+        provider (str): Name of the provider (e.g., "openai", "google", etc.)
+
+    Returns:
+        str | None: API key if found in environment, otherwise None.
+    """
+    provider = provider.lower()
+
+    env_keys = {
+        "openai": "OPENAI_API_KEY",
+        "gemini": "GEMINI_API_KEY",
+        "google": "GOOGLE_API_KEY",
+    }
+
+    for key, env_var in env_keys.items():
+        if key in provider:
+            return os.getenv(env_var)
+    return None
