@@ -27,6 +27,18 @@ class WebPageList(BaseModel):
     )
 
 
+class SeededUrl(BaseModel):
+    """Defines the strict schema for the output of the tool (a seeded URL)."""
+
+    url: str = Field(..., description="The full URL of the webpage")
+    title: str = Field(..., description="The title of the webpage")
+    relevance_score: float = Field(..., description="Relevance to the user query")
+
+
+class SeededUrlList(BaseModel):
+    results: List[SeededUrl]
+
+
 class CrawledPage(BaseModel):
     """Represents a discovered page during the crawling process."""
 

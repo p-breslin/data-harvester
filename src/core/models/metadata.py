@@ -1,13 +1,13 @@
 from datetime import datetime, timezone
 from typing import Optional
 
-from pydantic import BaseModel, Field, HttpUrl
+from pydantic import BaseModel, Field
 
 
 class Metadata(BaseModel):
     """Common metadata fields for all scraped entities."""
 
-    source_url: Optional[HttpUrl] = Field(
+    source_url: Optional[str] = Field(
         None, description="URL where the data was extracted from."
     )
     source_name: Optional[str] = Field(

@@ -1,7 +1,7 @@
 from enum import Enum
-from typing import Optional
+from typing import List, Optional
 
-from pydantic import Field
+from pydantic import BaseModel, Field
 
 from core.models.metadata import Metadata
 
@@ -64,3 +64,16 @@ class Product(Metadata):
                 ]
             },
         }
+
+
+class ProductList(BaseModel):
+    """List of discovered product information."""
+
+    results: List[Product] = Field(
+        default_factory=list,
+        description="List of discovered product information.",
+    )
+    source_domain: Optional[str] = Field(
+        None,
+        description="The domain from which this batch of product data was extracted.",
+    )
