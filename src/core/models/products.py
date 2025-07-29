@@ -27,7 +27,8 @@ class Product(Metadata):
         None, description="Short summary of what the product/service is or does."
     )
     category: Optional[str] = Field(
-        None, description="Primary category or classification."
+        None,
+        description="Primary category or classification (e.g., Smartphones, Computers).",
     )
     sku: Optional[str] = Field(
         None,
