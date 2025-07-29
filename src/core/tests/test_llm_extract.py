@@ -42,7 +42,7 @@ async def main():
     )
     response = await agent.arun("Extract the data as instructed.")
     pprint_run_response(response, markdown=False)
-    validate_response(response.content, ProductList)
+    validate_response(response.content, ProductList, savefile="test_llm_extract")
 
 
 if __name__ == "__main__":
