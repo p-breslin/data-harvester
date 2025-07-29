@@ -68,9 +68,33 @@ async def extract_tool(
         min_word_threshold=None,
     )
 
+    # Custom BrowserConfig for stealth
+    browser_cfg = BrowserConfig(
+        browser_type="chromium",
+        headless=True,  # keeps browser window hidde
+        viewport_width=1600,  # full desktop version
+        viewport_height=900,
+        user_agent=cfg.get(
+            "user_agent",
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/117.0.0.0 Safari/537.36",
+        ),  # anti-bot logic
+        ignore_https_errors=True,
+        use_persistent_context=True,  # reuse the same browser context
+        extra_args=["--disable-blink-features=AutomationControlled"],  # anti-bot logic
+    )
+
     # Configure the CrawlerRunConfig
     excluded_tags = ["nav", "footer", "aside", "header", "script", "style"]
     crawl_cfg = CrawlerRunConfig(
+        wait_until="networkidle",  # wait for network to quiet down
+        page_timeout=20000,  # 20s nav timeout
+        delay_before_return_html=0.5,  # small pause before grab
+        scan_full_page=True,  # scroll to load lazy content
+        simulate_user=True,  # wiggle mouse, etc.
+        override_navigator=True,  # spoof navigator props
+        magic=True,  # auto-handle popups/consent
         cache_mode=CacheMode.BYPASS,
         extraction_strategy=extraction_strategy,
         exclude_external_links=True,
@@ -85,7 +109,7 @@ async def extract_tool(
 
     try:
         async with AsyncWebCrawler(
-            config=BrowserConfig(browser_mode="builtin", headless=True)
+            config=BrowserConfig(browser_mode=browser_cfg)
         ) as crawler:
             container = await crawler.arun_many(
                 urls=urls, config=crawl_cfg, dispatcher=dispatcher
