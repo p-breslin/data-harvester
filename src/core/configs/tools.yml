@@ -6,5 +6,4 @@ extract_tool:
     Analyze the content to find values for the fields defined in the schema.
     Do NOT invent new field names.
     Do NOT add any data that does not fit into the schema's defined fields.
-    If a value for a required field cannot be found, your extraction has failed.
     The target page may contain multiple products. Extract **all** products that match the schema and place them in the `results` list.
