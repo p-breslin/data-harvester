@@ -69,5 +69,5 @@ extract:
     Do not attempt to extract the information manually or summarize the pages. 
     Call the tool with the provided schema and URLs.
   model_id: gpt-4.1-mini
-  parser_model_id: gpt-4.1-nano
+  parser_model_id: gpt-4.1
   markdown: false
