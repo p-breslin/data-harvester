@@ -105,3 +105,38 @@ def setup_logging(
     logging.getLogger("setup_logger").info(
         f"Logging configured with level: {logging.getLevelName(level)}"
     )
+
+
+def log_tools(
+    tool_name: str,
+    level: int = logging.DEBUG,
+) -> logging.Logger:
+    """Tool-specific logger that writes detailed debug logs to a file.
+
+    Args:
+        tool_name (str): Unique name for the tool logger (e.g., 'extract_tool').
+        leve (int): Minimum log level for this logger (default: DEBUG).
+
+    Returns:
+        Configured Logger instance for the tool.
+    """
+    logger = logging.getLogger(f"tools.{tool_name}")
+    logger.setLevel(level)
+
+    # Prevent propagation to root (i.e., no console output)
+    logger.propagate = False
+
+    # Prevent adding multiple handlers if called repeatedly
+    if any(isinstance(h, logging.FileHandler) for h in logger.handlers):
+        return logger
+
+    # Build a timestamped filename per tool
+    timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    filename = f"{tool_name}_{timestamp}.log"
+    savepath = DATA_DIR / "logs" / "tools" / filename
+    savepath.parent.mkdir(parents=True, exist_ok=True)
+
+    file_handler = logging.FileHandler(savepath, mode="a", encoding="utf-8")
+    file_handler.setFormatter(CustomFormatter())
+    logger.addHandler(file_handler)
+    return logger

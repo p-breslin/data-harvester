@@ -1,5 +1,6 @@
 import json
 import logging
+from datetime import datetime, timezone
 from typing import Any, Dict, List
 
 from agno.tools import tool
@@ -16,12 +17,16 @@ from crawl4ai.extraction_strategy import LLMExtractionStrategy
 from crawl4ai.markdown_generation_strategy import DefaultMarkdownGenerator
 
 from core.utils.helpers import load_yaml, resolve_api_key
+from core.utils.logger import log_tools
 
+# Setup
 log = logging.getLogger(__name__)
+tool_name = "extract_tool"
+tool_log = log_tools(tool_name)
 
 
 @tool(
-    name="extract_tool",
+    name=tool_name,
     description=(
         "Extracts structured data from a list of URLs based on a Pydantic schema. "
         "Runs URLs in parallel via a persistent browser and returns per-URL status + data."
@@ -41,14 +46,14 @@ async def extract_tool(
     Returns:
         JSON string of results.
     """
-    cfg = load_yaml("tools", key="extract_tool")
+    cfg = load_yaml("tools", key=tool_name)
     try:
         schema_dict = json.loads(schema_json)
     except json.JSONDecodeError:
         return json.dumps(
             {"results": [], "error": "Invalid JSON for schema_json"}, indent=2
         )
-    log.info(f"[ExtractTool] Starting extraction on {len(urls)} URLs.")
+    tool_log.info(f"[{tool_name}] Starting extraction on {urls}.")
 
     # Configure the LLM extraction strategy
     api_token = resolve_api_key(cfg["provider"])
@@ -71,7 +76,7 @@ async def extract_tool(
     # Custom BrowserConfig for stealth
     browser_cfg = BrowserConfig(
         browser_type="chromium",
-        headless=True,  # keeps browser window hidde
+        headless=True,  # keeps browser window hidden
         viewport_width=1600,  # full desktop version
         viewport_height=900,
         user_agent=cfg.get(
@@ -115,7 +120,7 @@ async def extract_tool(
                 urls=urls, config=crawl_cfg, dispatcher=dispatcher
             )
     except Exception as e:
-        log.exception("[ExtractTool] Failed to launch crawler")
+        log.exception(f"[{tool_name}] Failed to launch crawler")
         # global failure
         return json.dumps(
             {
@@ -135,12 +140,17 @@ async def extract_tool(
     # Process each result
     output: List[Dict[str, Any]] = []
     for res in iterable:
-        entry = {"url": getattr(res, "url", None)}
+        entry = {
+            "url": getattr(res, "url", None),
+            "scraped_at": datetime.now(timezone.utc).isoformat(),
+        }
         if getattr(res, "success", False) and getattr(res, "extracted_content", None):
             raw = res.extracted_content
             try:
                 data = json.loads(raw)
                 entry.update(status="success", data=data)
+                tool_log.debug(entry)
+
             except json.JSONDecodeError:
                 entry.update(
                     status="failed",
