@@ -14,6 +14,7 @@ dependencies = [
     "openai>=1.97.0",
     "pycountry>=24.6.1",
     "python-arango>=8.2.1",
+    "sqlalchemy>=2.0.42",
     "tavily-python>=0.7.10",
 ]
 
