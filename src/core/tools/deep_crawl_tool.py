@@ -124,7 +124,7 @@ async def crawl4ai_deep_crawl(start_url: str, mode: str) -> List[dict]:
 
 
 @tool(
-    name="deep_crawl",
+    name="deep_crawl_tool",
     description="Deep crawling tool",
     show_result=True,
 )

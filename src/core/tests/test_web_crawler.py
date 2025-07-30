@@ -6,8 +6,8 @@ from agno.agent import Agent
 from agno.models.openai import OpenAIChat
 from dotenv import load_dotenv
 
-from core.models.websites import CrawledURLsList
-from core.tools.web_crawl import crawl_tool
+from core.models.websites import CrawledPageList
+from core.tools.deep_crawl_tool import deep_crawl_tool
 
 load_dotenv()
 log = logging.getLogger(__name__)
@@ -18,10 +18,10 @@ url = "https://www.apple.com/newsroom/2025/03/apple-introduces-the-new-macbook-a
 async def main():
     crawl_agent = Agent(
         model=OpenAIChat(id="gpt-4.1-nano"),
-        tools=[crawl_tool],
+        tools=[deep_crawl_tool],
         instructions=["Use the web crawling tool tool to find relevant URLs"],
         parser_model=OpenAIChat(id="gpt-4.1-nano"),
-        response_model=CrawledURLsList,
+        response_model=CrawledPageList,
         show_tool_calls=True,
         markdown=False,
     )

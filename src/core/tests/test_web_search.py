@@ -7,8 +7,8 @@ from agno.tools.duckduckgo import DuckDuckGoTools
 from agno.tools.googlesearch import GoogleSearchTools
 from dotenv import load_dotenv
 
-from core.models.websites import WebPageCollection
-from core.tools.web_search import search_tool
+from core.models.websites import WebPageList
+from core.tools import search_tool
 
 load_dotenv()
 
@@ -45,7 +45,7 @@ class WebSearch:
         markdown=False,
         description=_DESCRIPTION,
         instructions=_INSTRUCTION,
-        response_model=WebPageCollection,
+        response_model=WebPageList,
     ):
         """Creates an Agno agent instance customized for web searching.
 

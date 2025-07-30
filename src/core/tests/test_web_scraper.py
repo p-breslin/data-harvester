@@ -7,7 +7,7 @@ from agno.models.openai import OpenAIChat
 from dotenv import load_dotenv
 
 from core.models.products import Product
-from core.tools.web_scrape import scrape_tool
+from core.tools import scrape_tool
 
 load_dotenv()
 log = logging.getLogger(__name__)
