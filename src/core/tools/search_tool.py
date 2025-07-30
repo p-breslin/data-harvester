@@ -5,7 +5,7 @@ from agno.tools import tool
 from dotenv import load_dotenv
 from tavily import TavilyClient
 
-load_dotenv()
+from core.utils.logger import log_tools
 
 
 @tool(
@@ -20,8 +20,10 @@ def search_tool(query: str) -> str:
         query (str): The search query
 
     Returns:
-        str: JSON string containing search results (URL and title)
+        str: JSON string containing search results.
     """
+    load_dotenv()
+    search_log = log_tools("search_tool")
     try:
         # Initialize Tavily client
         tavily_api_key = os.getenv("TAVILY_API_KEY")
@@ -37,6 +39,7 @@ def search_tool(query: str) -> str:
         client = TavilyClient(api_key=tavily_api_key)
 
         # Perform search
+        search_log.debug(f"Search query: {query}")
         response = client.search(
             query=query,
             max_results=5,
@@ -49,19 +52,14 @@ def search_tool(query: str) -> str:
         # Format results
         results = []
         for result in response.get("results", []):
-            results.append(
-                {
-                    "url": result.get("url", ""),
-                    "title": result.get("title", ""),
-                }
-            )
-
-        return json.dumps(
-            {
-                "results": results,
-            },
-            indent=2,
-        )
+            entry = {
+                "url": result.get("url", ""),
+                "title": result.get("title", ""),
+                "content": result.get("content", ""),
+            }
+            search_log.debug(json.dumps(entry, indent=2))
+            results.append(entry)
+        return json.dumps({"results": results}, indent=2)
 
     except Exception as e:
         return json.dumps(

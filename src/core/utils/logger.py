@@ -126,17 +126,14 @@ def log_tools(
     # Prevent propagation to root (i.e., no console output)
     logger.propagate = False
 
-    # Prevent adding multiple handlers if called repeatedly
-    if any(isinstance(h, logging.FileHandler) for h in logger.handlers):
-        return logger
+    # Attach file handler only if none exist
+    if not logger.handlers:
+        timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        filename = f"{tool_name}_{timestamp}.log"
+        savepath = DATA_DIR / "logs" / "tools" / filename
+        savepath.parent.mkdir(parents=True, exist_ok=True)
 
-    # Build a timestamped filename per tool
-    timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    filename = f"{tool_name}_{timestamp}.log"
-    savepath = DATA_DIR / "logs" / "tools" / filename
-    savepath.parent.mkdir(parents=True, exist_ok=True)
-
-    file_handler = logging.FileHandler(savepath, mode="a", encoding="utf-8")
-    file_handler.setFormatter(CustomFormatter())
-    logger.addHandler(file_handler)
+        file_handler = logging.FileHandler(savepath, mode="a", encoding="utf-8")
+        file_handler.setFormatter(CustomFormatter())
+        logger.addHandler(file_handler)
     return logger

@@ -19,10 +19,7 @@ from crawl4ai.markdown_generation_strategy import DefaultMarkdownGenerator
 from core.utils.helpers import load_yaml, resolve_api_key
 from core.utils.logger import log_tools
 
-# Setup
-log = logging.getLogger(__name__)
 tool_name = "extract_tool"
-tool_log = log_tools(tool_name)
 
 
 @tool(
@@ -46,7 +43,11 @@ async def extract_tool(
     Returns:
         JSON string of results.
     """
+    # Setup
+    log = logging.getLogger(__name__)
+    tool_log = log_tools(tool_name)
     cfg = load_yaml("tools", key=tool_name)
+
     try:
         schema_dict = json.loads(schema_json)
     except json.JSONDecodeError:
