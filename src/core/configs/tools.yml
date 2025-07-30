@@ -1,9 +1,19 @@
-extract_tool: 
+extract_tool:
   provider: gemini/gemini-2.5-flash
   max_concurrent: 20
   instructions: |
-    Your primary task is to populate a JSON object that strictly follows the provided schema.
-    Analyze the content to find values for the fields defined in the schema.
-    Do NOT invent new field names.
-    Do NOT add any data that does not fit into the schema's defined fields.
-    The target page may contain multiple products. Extract **all** products that match the schema and place them in the `results` list.
+    Your task is to extract structured data from the web page and populate a JSON object that strictly conforms to the provided schema.
+
+    General Requirements:
+    - Only extract fields explicitly defined in the schema. Do not invent new fields or add data outside the schema.
+    - If a value is unavailable, leave the field null or omit it if the schema allows.
+
+    Schema cardinality:
+    - If the schema describes a **single entity** (e.g. a product line, company, or summary object), return **one object** that conforms exactly to the schema.
+    - If the schema describes **repeated entities** (e.g. products, SKUs, or features), extract **all valid instances** and return them in a list under the `results` key.
+
+    Output must:
+    - Match the field names and structure exactly as defined in the schema.
+    - Contain no extra commentary, wrapping, or metadata beyond what the schema permits.
+
+    Your goal is to produce a clean, valid JSON response with zero structural deviations.
