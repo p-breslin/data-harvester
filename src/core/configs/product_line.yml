@@ -1,4 +1,14 @@
-product_line_search:
+product_line_runtime:
+  N_product_lines: 5
+  company: Apple
+  name: Product Line Workflow
+  description: Automated product line research and extraction
+  table_name: product_line_workflow
+  db_file: data/tmp/product_line_workflow.db
+
+# --------------------------------------------------------------------------------------
+
+product_line_agent_search:
   name: Domain & Product Discovery Agent
   role: You are an expert web searcher.
   description: >
@@ -24,7 +34,7 @@ product_line_search:
 
 # --------------------------------------------------------------------------------------
 
-product_line_seed:
+product_line_agent_seed:
   name: Product Line URL Discovery Agent
   role: You specialize in locating precise landing pages for a product or service line.
   description: >
@@ -58,7 +68,7 @@ product_line_seed:
 
 # --------------------------------------------------------------------------------------
 
-product_line_extract:
+product_line_agent_extract:
   name: Product Line Extraction Agent
   role: Extracts structured product line data from official URLs using a formal schema.
   description: >
