@@ -67,7 +67,7 @@ class ProductLineList(BaseModel):
     company_name: str = Field(
         ..., description="The name of the company these product lines belong to."
     )
-    results: List[ProductLine] = Field(
+    product_lines: List[ProductLine] = Field(
         default_factory=list,
         description="List of high-level product or service lines.",
     )
