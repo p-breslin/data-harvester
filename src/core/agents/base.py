@@ -43,6 +43,7 @@ def create_agent(
         parser_model=parser_model,
         response_model=response_model,
         markdown=cfg.get("markdown", False),
+        show_tool_calls=cfg.get("show_tool_calls", False),
     )
 
 
