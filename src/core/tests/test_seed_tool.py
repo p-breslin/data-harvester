@@ -26,14 +26,7 @@ async def main():
     )
 
     # Instruct the agent to invoke the seed tool
-    prompt = (
-        "seed_urls("
-        "domain='apple.com', "
-        "query='iPhone 15 technical specifications', "
-        "top_k=5, "
-        "score_threshold=0.25"
-        ")"
-    )
+    prompt = "Search for iPhone technical specifications on apple.com"
     await agent.aprint_response(prompt, markdown=True)
 
 
