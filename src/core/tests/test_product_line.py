@@ -18,13 +18,13 @@ from core.utils.logger import setup_logging
 
 setup_logging()
 log = logging.getLogger(__name__)
+cfg = load_yaml("product_line")
 
 
 async def main():
     # Search for product lines (sync tool via async API)
-    search_cfg = load_yaml("product_line", key="product_line_search")
     search_agent = create_agent(
-        cfg=search_cfg,
+        cfg=cfg["product_line_agent_search"],
         tools=[search_tool],
         response_model=DomainProducts,
     )
@@ -39,9 +39,8 @@ async def main():
     pprint_run_response(search_resp, markdown=True)
 
     # Seed product line URLs (async tool)
-    seed_cfg = load_yaml("product_line", key="product_line_seed")
     seed_agent = create_agent(
-        cfg=seed_cfg,
+        cfg=cfg["product_line_agent_seed"],
         tools=[seed_tool],
         response_model=SeededProductLine,
     )
@@ -62,9 +61,8 @@ async def main():
     print("\nSeeded product line URLs:")
     print(seeded_list.model_dump_json(indent=2))
 
-    extract_cfg = load_yaml("product_line", key="product_line_extract")
     extract_agent = create_agent(
-        cfg=extract_cfg,
+        cfg=cfg["product_line_agent_extract"],
         tools=[extract_tool],
         response_model=ProductLineList,
     )
