@@ -3,12 +3,15 @@ from __future__ import annotations
 import json
 import logging
 import os
-from typing import Any, Dict
+from pathlib import Path
+from typing import Any, Dict, Optional
 
 import yaml
 from agno.models.google import Gemini
 from agno.models.openai import OpenAIChat
 from agno.models.openrouter import OpenRouter
+from agno.tools.file import FileTools
+from agno.workflow.v2.types import StepOutput
 from arango import ArangoClient
 from arango.database import StandardDatabase
 from pydantic import BaseModel
@@ -273,3 +276,43 @@ def resolve_api_key(provider: str) -> str | None:
         if key in provider:
             return os.getenv(env_var)
     return None
+
+
+def save_workflow_output(
+    step_output: StepOutput,
+    output_path: Path,
+    file_prefix: Optional[str] = None,
+    custom_filename: Optional[str] = None,
+) -> str:
+    """Saves an Agno Workflow step output to a file.
+
+    Args:
+        step_output: The StepOutput object to save
+        output_path (Path): Output path for saved files
+        file_prefix (str): Optional prefix for the filename
+        custom_filename (str): Custom filename (overrides automatic naming)
+
+    Returns:
+        The filename that was saved
+    """
+    file_tools = FileTools(base_dir=Path(output_path))
+
+    # Generate filename if not provided
+    if custom_filename:
+        filename = custom_filename
+    else:
+        step_name = getattr(step_output, "step_name", "unknown_step")
+        safe_step_name = step_name.lower().replace(" ", "_").replace("-", "_")
+        prefix = f"{file_prefix}_" if file_prefix else ""
+        filename = f"{prefix}{safe_step_name}_output.json"
+
+    # Convert content to JSON string
+    if hasattr(step_output.content, "model_dump_json"):
+        content = step_output.content.model_dump_json(indent=2)
+    elif hasattr(step_output.content, "model_dump"):
+        content = json.dumps(step_output.content.model_dump(), indent=2)
+    else:
+        content = json.dumps(step_output.content, indent=2, default=str)
+
+    # Save the file
+    file_tools.save_file(contents=content, file_name=filename)
