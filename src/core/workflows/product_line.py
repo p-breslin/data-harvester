@@ -8,6 +8,7 @@ from agno.workflow.v2 import Step, Workflow
 from agno.workflow.v2.types import StepInput, StepOutput
 
 from core.agents.base import create_agent
+from core.database.sqlite_db import CompanyDataDB
 from core.models import (
     DomainProducts,
     ProductLine,
@@ -130,6 +131,40 @@ async def extract_step_function(step_input: StepInput) -> StepOutput:
     return step_output
 
 
+async def db_storage_step(step_input: StepInput) -> StepOutput:
+    """Store extracted product lines in database"""
+
+    extract_results = step_input.previous_step_content
+    if not isinstance(extract_results, ProductLineList):
+        raise ValueError("Expected ProductLineList from extract step")
+
+    # Convert to dict format
+    product_data = {
+        "company_name": extract_results.company_name,
+        "product_lines": [
+            {
+                "name": pl.name,
+                "type": pl.type,
+                "description": pl.description,
+                "category": pl.category,
+            }
+            for pl in extract_results.product_lines
+        ],
+    }
+
+    # Initialize database and store data
+    db = CompanyDataDB()
+    db.insert_product_lines(product_data)
+
+    step_output = StepOutput(
+        step_name="Database Storage",
+        content=f"Stored {len(product_data['product_lines'])} product lines for {product_data['company_name']}",
+        success=True,
+    )
+    save_workflow_output(step_output=step_output, output_path=output_path)
+    return step_output
+
+
 async def main():
     runtime = cfg["product_line_runtime"]
     product_workflow = Workflow(
@@ -144,6 +179,7 @@ async def main():
             Step(name="Search", executor=search_step_function),
             Step(name="Parallel Seeding", executor=parallel_seeding_step),
             Step(name="Extract", executor=extract_step_function),
+            Step(name="Database Storage", executor=db_storage_step),
         ],
     )
     trigger = {"company": runtime["company"], "N": runtime["N_product_lines"]}
@@ -154,7 +190,8 @@ async def main():
     ):
         # Process events as they come
         if hasattr(event, "content") and event.content:
-            print(f"Event: {type(event).__name__}")
+            step_name = getattr(event, "step_name", "Unknown Step")
+            print(f"Event: {type(event).__name__} - Step: {step_name}")
 
     print("\nWorkflow completed successfully!")
 
