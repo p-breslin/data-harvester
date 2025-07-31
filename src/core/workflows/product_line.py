@@ -190,8 +190,14 @@ async def main():
     ):
         # Process events as they come
         if hasattr(event, "content") and event.content:
-            step_name = getattr(event, "step_name", "Unknown Step")
-            print(f"Event: {type(event).__name__} - Step: {step_name}")
+            if hasattr(event, "step_name"):
+                # This is a step-level event
+                print(f"Event: {type(event).__name__} - Step: {event.step_name}")
+            else:
+                # This is a workflow-level event
+                print(
+                    f"Event: {type(event).__name__} - Workflow: {getattr(event, 'workflow_name', 'Unknown Workflow')}"
+                )
 
     print("\nWorkflow completed successfully!")
 
