@@ -23,6 +23,28 @@ class CompanyDataDB:
                 )  
             """)
 
+            # Company profile table
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS profiles (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    company_id INTEGER NOT NULL,
+                    ticker TEXT,
+                    cik TEXT,
+                    industry TEXT,
+                    location TEXT,
+                    sic_code TEXT,
+                    fiscal_year_end TEXT,
+                    exchanges TEXT,  -- comma-separated list
+                    shares_outstanding INTEGER,
+                    public_float INTEGER,
+                    revenue_value REAL,
+                    revenue_period TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (company_id) REFERENCES companies(id),
+                    UNIQUE(company_id)
+                )
+            """)
+
             # Product lines table
             conn.execute("""  
                 CREATE TABLE IF NOT EXISTS product_lines (  
@@ -57,6 +79,57 @@ class CompanyDataDB:
                 "SELECT id FROM companies WHERE name = ?", (company_name,)
             )
             return cursor.fetchone()[0]
+
+    def insert_company_profile(self, profile: Dict[str, Any]):
+        """Insert or update CompanyProfile data"""
+        company_name = profile["company_name"]
+        company_id = self.insert_company(company_name)
+
+        exchanges = profile.get("exchanges")
+        if isinstance(exchanges, list):
+            exchanges_str = ",".join(exchanges)
+        else:
+            exchanges_str = None
+
+        revenue = profile.get("latest_revenue", {})
+        revenue_value = revenue.get("numeric_value")
+        revenue_period = revenue.get("period_end")
+
+        with sqlite3.connect(self.db_path) as conn:
+            conn.execute(
+                """
+                INSERT OR REPLACE INTO profiles (
+                    company_id,
+                    ticker,
+                    cik,
+                    industry,
+                    location,
+                    sic_code,
+                    fiscal_year_end,
+                    exchanges,
+                    shares_outstanding,
+                    public_float,
+                    revenue_value,
+                    revenue_period
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+                (
+                    company_id,
+                    profile.get("ticker"),
+                    profile.get("cik"),
+                    profile.get("industry"),
+                    profile.get("location"),
+                    profile.get("sic_code"),
+                    profile.get("fiscal_year_end"),
+                    exchanges_str,
+                    profile.get("shares_outstanding"),
+                    profile.get("public_float"),
+                    revenue_value,
+                    revenue_period,
+                ),
+            )
+            conn.commit()
 
     def insert_product_lines(self, product_line_list: Dict[str, Any]):
         """Insert ProductLineList data into database"""
