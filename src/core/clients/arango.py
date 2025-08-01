@@ -12,7 +12,6 @@ from dotenv import load_dotenv
 from core.utils.logger import setup_logging
 
 load_dotenv()
-setup_logging()
 log = logging.getLogger(__name__)
 
 
@@ -31,9 +30,7 @@ class ArangoManager:
             raise
 
     def create(self, db_name: str, reset: bool = False):
-        """
-        Create a database. If reset=True and the DB exists, delete it first.
-        """
+        """Create a database. If reset=True and the DB exists, delete it first."""
         if self.sys_db.has_database(db_name):
             if reset:
                 self.sys_db.delete_database(db_name)
@@ -53,6 +50,10 @@ class ArangoManager:
             log.info(f"Deleted database '{db_name}'")
         else:
             log.warning(f"Database '{db_name}' does not exist.")
+
+    def exists(self, db_name: str) -> bool:
+        """Check if a database exists."""
+        return self.sys_db.has_database(db_name)
 
 
 def parse_args() -> argparse.Namespace:
@@ -89,13 +90,13 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Delete existing DB before creation",
     )
-
     sub.add_parser("delete", help="Delete a database")
-
+    sub.add_parser("exists", help="Check if a database exists")
     return parser.parse_args()
 
 
 def main():
+    setup_logging()
     args = parse_args()
     manager = ArangoManager(host=args.host, user=args.user, password=args.password)
 
@@ -103,6 +104,14 @@ def main():
         manager.create(args.db_name, reset=args.reset)
     elif args.command == "delete":
         manager.delete(args.db_name)
+    elif args.command == "exists":
+        exists = manager.exists(args.db_name)
+        if exists:
+            print(f"Database '{args.db_name}' exists.")
+        else:
+            print(f"Database '{args.db_name}' does not exist.")
+    else:
+        log.error(f"Unknown command: {args.command}")
 
 
 if __name__ == "__main__":
