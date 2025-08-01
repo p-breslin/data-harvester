@@ -1,266 +1,203 @@
 import asyncio
 import json
 import logging
-import os
 from datetime import datetime
 
 from agno.storage.sqlite import SqliteStorage
 from agno.workflow.v2 import Step, Workflow
 from agno.workflow.v2.types import StepInput, StepOutput
-from dotenv import load_dotenv
-from xflow_graph.adapters.arango import ArangoAdapter
-from xflow_graph.models import create_model_instance, generate_document_id
-from xflow_graph.services.graph import GraphService
 
 from core.agents.base import create_agent
-from core.clients.arango import ArangoManager
-from core.clients.sqlite import get_connection
-from core.database.sqlite_db import CompanyDataDB
 from core.models import (
+    CompanyProfile,
     DomainProducts,
     ProductLine,
     ProductLineList,
     SeededProductLine,
     SeededProductLineList,
 )
-from core.tools import extract_tool, search_tool, seed_tool
+from core.tools import extract_tool, search_tool, sec_tool, seed_tool
 from core.utils.helpers import load_yaml, save_workflow_output
 from core.utils.logger import setup_logging
 from core.utils.paths import DATA_DIR
+from core.workflows.storage_steps import (
+    pl_graph_storage,
+    pl_sql_storage,
+    profile_graph_storage,
+    profile_sql_storage,
+)
 
-load_dotenv()
+# --- Set up ---------------------------------------------------------------------------
+
 setup_logging()
 log = logging.getLogger(__name__)
 
+# Configuration file
 cfg = load_yaml("product_line")
 
-# Set-up for workflow output save files
+# Save path for workflow output
 execution_time = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 output_path = DATA_DIR / "workflow_outputs" / execution_time
 output_path.mkdir(parents=True, exist_ok=True)
 
 
-async def search_step_function(step_input: StepInput) -> StepOutput:
-    """Search for product lines using the search agent"""
-    # Parse input parameters
-    input_data = (
-        json.loads(step_input.message)
-        if isinstance(step_input.message, str)
-        else step_input.message
-    )
-    company = input_data.get("company", "Apple")
-    N = input_data.get("N", 5)
+# --- Agents ---------------------------------------------------------------------------
 
-    # Search agent
+
+async def profile_step(step_input: StepInput) -> StepOutput:
+    """Generates a structured company profile.
+
+    Spawns an Agno agent with SEC and search tools to retrieve company profile information. The output conforms to the CompanyProfile predefined schema.
+    """
+
+    # Initiate the agent
+    profile_agent = create_agent(
+        cfg=cfg["agent_company_profile"],
+        tools=[search_tool, sec_tool],
+        response_model=CompanyProfile,
+    )
+
+    # Run the agent
+    company = step_input.message["company"]
+    trigger = json.dumps({"company": company})
+    resp = await profile_agent.arun(trigger)
+
+    # Process the workflow step
+    step_output = StepOutput(
+        step_name=cfg["runtime"]["profile"],
+        content=resp.content,
+        success=True,
+    )
+    save_workflow_output(
+        step_output=step_output,
+        output_path=step_input.additional_data["output_path"],
+    )
+    return step_output
+
+
+async def search_step(step_input: StepInput) -> StepOutput:
+    """Searches for high-level product or service lines associated with a company.
+
+    Spawns an Agno agent with a web search tool to identify N product or service lines for a given company official sources. The output conforms to the DomainProducts predefined schema.
+    """
+    # Initiate the agent
     search_agent = create_agent(
-        cfg=cfg["product_line_agent_search"],
+        cfg=cfg["agent_search"],
         tools=[search_tool],
         response_model=DomainProducts,
     )
 
-    # Execute search
-    search_trigger = json.dumps({"company": company, "N": N})
-    search_resp = await search_agent.arun(search_trigger)
+    # Run the agent
+    company = step_input.message["company"]
+    N = step_input.message["N"]
+    trigger = json.dumps({"company": company, "N": N})
+    resp = await search_agent.arun(trigger)
+
+    # Process workflow step
     step_output = StepOutput(
-        step_name="Search",
-        content=search_resp.content,  # DomainProducts object
+        step_name=cfg["runtime"]["search"],
+        content=resp.content,  # DomainProducts object
         success=True,
     )
-    save_workflow_output(step_output=step_output, output_path=output_path)
+    save_workflow_output(
+        step_output=step_output,
+        output_path=step_input.additional_data["output_path"],
+    )
     return step_output
 
 
-async def parallel_seeding_step(step_input: StepInput) -> StepOutput:
-    """Parallel seeding step that preserves the asyncio.gather() pattern"""
+async def seed_step(step_input: StepInput) -> StepOutput:
+    """Seeds product lines with candidate URLs for structured extraction.
 
-    search_results = step_input.previous_step_content  # previous results
-    if not isinstance(search_results, DomainProducts):
-        raise ValueError("Expected DomainProducts from search step")
-
-    domain = search_results.domain
-    product_lines = search_results.products
-
-    # Seed agent
+    Spawns parallelized Agno agents with a URL seed tool to find representative URLs for each provided product line. The output conforms to the SeededProductLine predefined schema.
+    """
+    # Initiate the agent
     seed_agent = create_agent(
-        cfg=cfg["product_line_agent_seed"],
+        cfg=cfg["agent_seed"],
         tools=[seed_tool],
         response_model=SeededProductLine,
     )
 
-    # Build triggers for each instance of the seed agent
-    triggers = [
-        json.dumps({"domain": domain, "query": [prod]}) for prod in product_lines
-    ]
+    # Prepare input from output of Search Step
+    search_output = step_input.previous_step_content
+    domain = search_output.domain
+    products = search_output.products
 
-    # Parallel execution
-    seed_resp = await asyncio.gather(*(seed_agent.arun(t) for t in triggers))
-    seeded_items = [resp.content for resp in seed_resp]
+    # Parallel execution - build triggers for each instance of the seed agent
+    triggers = [json.dumps({"domain": domain, "query": [prod]}) for prod in products]
+
+    # Run the agents in parallel
+    resp = await asyncio.gather(*(seed_agent.arun(t) for t in triggers))
+    seeded_items = [resp.content for resp in resp]
     seeded_list = SeededProductLineList(domain=domain, results=seeded_items)
 
+    # Process workflow step
     step_output = StepOutput(
-        step_name="Parallel Seeding", content=seeded_list, success=True
+        step_name=cfg["runtime"]["seed"],
+        content=seeded_list,
+        success=True,
     )
-    save_workflow_output(step_output=step_output, output_path=output_path)
+    save_workflow_output(
+        step_output=step_output,
+        output_path=step_input.additional_data["output_path"],
+    )
     return step_output
 
 
-async def extract_step_function(step_input: StepInput) -> StepOutput:
-    """Extract structured data from seeded URLs"""
+async def extract_step(step_input: StepInput) -> StepOutput:
+    """Extracts structured product line data from the seeded URLs.
 
-    seeded_results = step_input.previous_step_content  # previous results
-    if not isinstance(seeded_results, SeededProductLineList):
-        raise ValueError("Expected SeededProductLineList from seeding step")
+    Spawns an Agno agent with a data extraction (web crawling and scraping) tool to extract product line information from product-line-specific URLs. The output conforms to the ProductLineList predefined schema.
+    """
 
-    # Extract agent
+    # Initiate the agent
     extract_agent = create_agent(
-        cfg=cfg["product_line_agent_extract"],
+        cfg=cfg["agent_extract"],
         tools=[extract_tool],
         response_model=ProductLineList,
     )
 
-    # Collect URLs from seeded product lines
-    urls = [item.url for item in seeded_results.results if item.url is not None]
+    # Prepare input from output of Seed Step
+    seed_output = step_input.previous_step_content
+    urls = [item.url for item in seed_output.product_line_urls if item.url is not None]
 
-    # Convert schema to JSON string for extraction input
+    # Convert schema to JSON string for extraction input (specific to extract tool)
     schema_json = json.dumps(ProductLine.model_json_schema(), indent=2)
 
-    extract_trigger = json.dumps(
-        {
-            "urls": urls,
-            "schema_json": schema_json,
-        }
-    )
+    # Run the agent
+    trigger = json.dumps({"urls": urls, "schema_json": schema_json})
+    resp = await extract_agent.arun(trigger)
 
-    extract_resp = await extract_agent.arun(extract_trigger)
+    # Process workflow step
     step_output = StepOutput(
-        step_name="Extract", content=extract_resp.content, success=True
-    )
-    save_workflow_output(step_output=step_output, output_path=output_path)
-    return step_output
-
-
-async def db_storage_step(step_input: StepInput) -> StepOutput:
-    """Store extracted product lines in database"""
-
-    extract_results = step_input.previous_step_content
-    if not isinstance(extract_results, ProductLineList):
-        raise ValueError("Expected ProductLineList from extract step")
-
-    # Convert to dict format
-    product_data = {
-        "company_name": extract_results.company_name,
-        "product_lines": [
-            {
-                "name": pl.name,
-                "type": pl.type,
-                "description": pl.description,
-                "category": pl.category,
-            }
-            for pl in extract_results.product_lines
-        ],
-    }
-
-    # Initialize database and store data
-    db = CompanyDataDB()
-    db.insert_product_lines(product_data)
-
-    step_output = StepOutput(
-        step_name="Database Storage",
-        content=f"Stored {len(product_data['product_lines'])} product lines for {product_data['company_name']}",
+        step_name=cfg["runtime"]["extract"],
+        content=resp.content,
         success=True,
     )
-    save_workflow_output(step_output=step_output, output_path=output_path)
+    save_workflow_output(
+        step_output=step_output,
+        output_path=step_input.additional_data["output_path"],
+    )
     return step_output
 
 
-async def arango_step(step_input: StepInput) -> StepOutput:
-    conn = get_connection()  # connect to SQLite
-
-    # Check if the Arango database exists
-    manager = ArangoManager()
-    db_name = os.getenv("ARANGO_DB")
-    if not manager.exists(db_name):
-        manager.create(db_name)
-
-    # Initialize Arango adapter and graph service
-    adapter = ArangoAdapter.connect()
-    service = GraphService(adapter)
-
-    # Fetch all companies
-    companies = conn.execute("SELECT id, name FROM companies ORDER BY name").fetchall()
-    if not companies:
-        log.warning("No companies found in the database.")
-        return
-
-    for comp in companies:
-        # Upsert company node
-        comp_key = generate_document_id().replace("-", "")[:16]
-        comp_id = f"OrganizationUnit/{comp_key}"
-        comp_doc = create_model_instance(
-            "OrganizationUnit",
-            {"_key": comp_key, "name": comp["name"], "sub_type": "Company"},
-        )
-        service.upsert_node("OrganizationUnit", comp_doc)
-
-        # Fetch product lines for this company
-        sql = (
-            "SELECT id, name, type, description, category "
-            "FROM product_lines "
-            "WHERE company_id = ? "
-            "ORDER BY name"
-        )
-        rows = conn.execute(sql, (comp["id"],)).fetchall()
-        if not rows:
-            log.warning(
-                f"No product lines for company '{comp['name']}' (ID {comp['id']})."
-            )
-            continue
-
-        node_ops = []
-        edge_docs = []
-        for r in rows:
-            # Create product node
-            prod_key = generate_document_id().replace("-", "")[:16]
-            prod_id = f"DomainEntity/{prod_key}"
-            node_doc = create_model_instance(
-                "DomainEntity",
-                {
-                    "_key": prod_key,
-                    "name": r["name"],
-                    "sub_type": r["category"] or "",
-                    "attributes": {"description": r["description"] or ""},
-                },
-            )
-            node_ops.append({"collection": "DomainEntity", "doc": node_doc})
-
-            # Create PartOfProduct edge
-            edge_data = create_model_instance(
-                "PartOfProduct",
-                {"source_id": comp_id, "target_id": prod_id},
-                is_edge=True,
-            )
-            edge_fmt = {
-                **edge_data.model_dump(),
-                "_from": edge_data.source_id,
-                "_to": edge_data.target_id,
-            }
-            edge_docs.append(edge_fmt)
-
-        # Batch upsert nodes and link edges for this company
-        service.batch_upsert_nodes(node_ops, use_transaction=False)
-        service.link_edges("PartOfProduct", edge_docs)
-
-        step_output = StepOutput(
-            step_name="ArangoDB Storage",
-            content=f"Processed company '{comp['name']}' with {len(rows)} product lines.",
-            success=True,
-        )
-    save_workflow_output(step_output=step_output, output_path=output_path)
-    return step_output
+# --- Workflow Execution ---------------------------------------------------------------
 
 
 async def main():
-    runtime = cfg["product_line_runtime"]
+    """Orchestrates the end-to-end product profiling Agno workflow for a target company.
+
+    This function sets up and executes a multi-step workflow that:
+      1. Generates a structured company profile from SEC and web search data.
+      2. Stores the profile in both SQLite and ArangoDB.
+      3. Discovers the company's public product lines via web search.
+      4. Seeds each product line with representative URLs.
+      5. Extracts structured product information from those URLs.
+      6. Stores the extracted product line data in both SQLite and ArangoDB.
+
+    Workflow configuration is loaded from a YAML file, and runtime outputs are persisted to a timestamped directory for later inspection.
+    """
+    runtime = cfg["runtime"]
     product_workflow = Workflow(
         name=runtime["name"],
         description=runtime["description"],
@@ -270,31 +207,41 @@ async def main():
             mode="workflow_v2",
         ),
         steps=[
-            Step(name="Search", executor=search_step_function),
-            Step(name="Parallel Seeding", executor=parallel_seeding_step),
-            Step(name="Extract", executor=extract_step_function),
-            Step(name="Database Storage", executor=db_storage_step),
-            Step(name="ArangoDB Storage", executor=arango_step),
+            # Company Profile -> Storage
+            Step(name=runtime["profile"], executor=profile_step),
+            Step(name=runtime["profile_sql"], executor=profile_sql_storage),
+            Step(name=runtime["profile_graph"], executor=profile_graph_storage),
+            # Product Lines -> Storage
+            Step(name=runtime["search"], executor=search_step),
+            Step(name=runtime["seed"], executor=seed_step),
+            Step(name=runtime["extract"], executor=extract_step),
+            Step(name=runtime["pl_sql"], executor=pl_sql_storage),
+            Step(name=runtime["pl_graph"], executor=pl_graph_storage),
         ],
     )
     trigger = {"company": runtime["company"], "N": runtime["N_product_lines"]}
 
     # Run the workflow and iterate over the stream
     async for event in await product_workflow.arun(
-        message=json.dumps(trigger), stream=True
+        message=trigger,
+        additional_data={
+            "output_path": output_path,
+            "company": runtime["company"],
+        },
+        stream=True,
     ):
         # Process events as they come
         if hasattr(event, "content") and event.content:
             if hasattr(event, "step_name"):
-                # This is a step-level event
+                # step-level event
                 print(f"Event: {type(event).__name__} - Step: {event.step_name}")
             else:
-                # This is a workflow-level event
+                # workflow-level event
                 print(
                     f"Event: {type(event).__name__} - Workflow: {getattr(event, 'workflow_name', 'Unknown Workflow')}"
                 )
 
-    print("\nWorkflow completed successfully!")
+    print("\nWorkflow completed successfully.")
 
 
 if __name__ == "__main__":
