@@ -25,7 +25,7 @@ class CompanyDataDB:
 
             # Company profile table
             conn.execute("""
-                CREATE TABLE IF NOT EXISTS profiles (
+                CREATE TABLE IF NOT EXISTS company_profiles (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     company_id INTEGER NOT NULL,
                     ticker TEXT,
