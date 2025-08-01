@@ -24,8 +24,9 @@ _INSTRUCTION = [
 class WebSearch:
     """Uses different web search tools to make web searches."""
 
-    def __init__(self):
-        self.base_query = "Official Apple Product information"
+    def __init__(self, base_query: str = None):
+        # Allow overriding via constructor
+        self.base_query = base_query or "Official Apple Product information"
         self.today = datetime.today()
 
     def get_date_filtered_query(self):
@@ -47,12 +48,7 @@ class WebSearch:
         instructions=_INSTRUCTION,
         response_model=WebPageList,
     ):
-        """Creates an Agno agent instance customized for web searching.
-
-        Returns:
-            json: Structured output adhering to a Pydantic model
-        """
-
+        """Creates an Agno agent instance customized for web searching."""
         agent = Agent(
             tools=[tool],
             description=description,
@@ -88,12 +84,19 @@ class WebSearch:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run a specific web search.")
+    parser.add_argument(
+        "-q",
+        "--base-query",
+        type=str,
+        help="Override the default base query string",
+    )
     parser.add_argument("-tavily", action="store_true", help="Run Tavily web search")
     parser.add_argument("-google", action="store_true", help="Run Google web search")
     parser.add_argument("-ddg", action="store_true", help="Run DuckDuckGo web search")
 
     args = parser.parse_args()
-    search = WebSearch()
+    # Pass the CLI base-query into WebSearch
+    search = WebSearch(base_query=args.base_query)
 
     if args.tavily:
         search.tavily_search()
