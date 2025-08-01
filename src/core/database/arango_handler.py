@@ -27,70 +27,29 @@ class ArangoStorageHandler:
         self.service = GraphService(self.adapter)
         self.sqlite_conn = get_connection()
 
-    def _upsert_company_node(self, company_name: str) -> str:
-        """Ensures the existence of an OrganizationUnit node for a given company.
-
-        Fetches the company from the SQLite database and upserts it as an OrganizationUnit node in the ArangoDB graph with a generated key.
+    def store_company_profile(self, profile: Dict[str, Any], key: str) -> None:
+        """Stores company profile attributes on an OrganizationUnit.
 
         Args:
-            company_name (str): The name of the company to insert or update in ArangoDB.
-
-        Returns:
-            str: The full ArangoDB `_id` of the upserted OrganizationUnit node.
+            profile (Dict[str, Any]): A dict representation of a CompanyProfile object
+            key (str): The pre-generated UUID to use as the document _key.
         """
-        row = self.sqlite_conn.execute(
-            """
-            SELECT
-            companies.id      AS company_id,
-            companies.name    AS company_name,
-            company_profiles.cik
-            FROM companies
-            LEFT JOIN company_profiles
-            ON company_profiles.company_id = companies.id
-            WHERE companies.name = ?
-            """,
-            (company_name,),
-        ).fetchone()
-
-        if not row:
-            raise ValueError(f"Company '{company_name}' not found in SQLite")
-
-        cik_key = row["cik"].lstrip("0") if row["cik"] else row["company_id"]
-        comp_key = cik_key
-        comp_id = f"OrganizationUnit/{comp_key}"
-
-        comp_doc = create_model_instance(
-            "OrganizationUnit",
-            {
-                "_key": comp_key,
-                "name": row["company_name"],
-                "sub_type": "Company",
-            },
-        )
-        self.service.upsert_node("OrganizationUnit", comp_doc)
-        return comp_id
-
-    def store_company_profile(self, profile: Dict[str, Any]) -> None:
-        """Stores company profile attributes on an OrganizationUnit node.
-
-        Uses the company's CIK (stripped of leading zeros) as the node key, and attaches structured metadata in ArangoDB.
-
-        Args:
-            profile (Dict[str, Any]): A dict representation of a CompanyProfile object.
-        """
-
-        cik_key = profile["cik"].lstrip("0")  # CIK as stable key (strip leading zeros)
 
         # Build the full attribute set
         doc_body = {
-            "_key": cik_key,
+            "_key": key,
             "name": profile["company_name"],
             "sub_type": "Company",
-            # profile fields:
-            "ticker": profile.get("ticker"),
+            # external identifiers
+            "external_ids": {
+                "cik": profile.get("cik"),
+                "ticker": profile.get("ticker"),
+                "sic_code": profile.get("sic_code"),
+            },
+            # profile fields
+            "website": profile.get("website"),
             "industry": profile.get("industry"),
             "location": profile.get("location"),
-            "sic_code": profile.get("sic_code"),
             "fiscal_year_end": safe_date(profile.get("fiscal_year_end")),
             "exchanges": profile.get("exchanges") or [],
             "shares_outstanding": profile.get("shares_outstanding"),
@@ -108,19 +67,21 @@ class ArangoStorageHandler:
         comp_doc = create_model_instance("OrganizationUnit", doc_body)
         self.service.upsert_node("OrganizationUnit", comp_doc)
 
-    def store_product_lines(self, company_name: str) -> int:
+    def store_product_lines(self, company_name: str, key: str) -> int:
         """Stores product lines as DomainEntity nodes and links them to the company.
 
         Reads product lines from SQLite for a given company, upserts each product line as a DomainEntity node in ArangoDB, and links it to the associated OrganizationUnit node with a PartOfProduct edge.
 
         Args:
             company_name (str): Name of company whose product lines should be stored.
+            key (str): The UUID key of the parent OrganizationUnit node.
+
 
         Returns:
             int: Number of product lines successfully processed and stored in ArangoDB.
         """
-        comp_id = self._upsert_company_node(company_name)
 
+        comp_id = f"OrganizationUnit/{key}"
         rows = self.sqlite_conn.execute(
             """
             SELECT product_lines.id, product_lines.name, product_lines.type,
