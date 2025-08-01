@@ -92,6 +92,6 @@ class SeededProductLineList(BaseModel):
         ...,
         description="The root domain where the product line URLs were discovered (e.g. 'apple.com').",
     )
-    results: List[SeededProductLine] = Field(
+    product_line_urls: List[SeededProductLine] = Field(
         ..., description="List of product lines and their associated URLs."
     )
