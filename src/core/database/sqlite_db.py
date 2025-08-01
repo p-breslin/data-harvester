@@ -98,7 +98,7 @@ class CompanyDataDB:
         with sqlite3.connect(self.db_path) as conn:
             conn.execute(
                 """
-                INSERT OR REPLACE INTO profiles (
+                INSERT OR REPLACE INTO company_profiles (
                     company_id,
                     ticker,
                     cik,
