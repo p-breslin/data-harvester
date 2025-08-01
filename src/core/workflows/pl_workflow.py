@@ -129,7 +129,7 @@ async def seed_step(step_input: StepInput) -> StepOutput:
     # Run the agents in parallel
     resp = await asyncio.gather(*(seed_agent.arun(t) for t in triggers))
     seeded_items = [resp.content for resp in resp]
-    seeded_list = SeededProductLineList(domain=domain, results=seeded_items)
+    seeded_list = SeededProductLineList(domain=domain, product_line_urls=seeded_items)
 
     # Process workflow step
     step_output = StepOutput(
@@ -220,13 +220,14 @@ async def main():
         ],
     )
     trigger = {"company": runtime["company"], "N": runtime["N_product_lines"]}
+    workflow_success = True
 
     # Run the workflow and iterate over the stream
     async for event in await product_workflow.arun(
         message=trigger,
         additional_data={
             "output_path": output_path,
-            "company": runtime["company"],
+            "company_name": runtime["company"],
         },
         stream=True,
     ):
@@ -241,7 +242,12 @@ async def main():
                     f"Event: {type(event).__name__} - Workflow: {getattr(event, 'workflow_name', 'Unknown Workflow')}"
                 )
 
-    print("\nWorkflow completed successfully.")
+        if getattr(event, "success", None) is not True:
+            workflow_success = False
+    if workflow_success:
+        print("\nWorkflow completed successfully.")
+    else:
+        print("\nWorkflow encountered errors.")
 
 
 if __name__ == "__main__":
