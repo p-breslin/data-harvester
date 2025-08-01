@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import datetime
 import json
 import logging
 import os
@@ -316,3 +317,14 @@ def save_workflow_output(
 
     # Save the file
     file_tools.save_file(contents=content, file_name=filename)
+
+
+def safe_date(obj: Any) -> Any:
+    """Recursively converts all datetime/date objects in a structure to ISO 8601 strings."""
+    if isinstance(obj, (datetime.date, datetime.datetime)):
+        return obj.isoformat()
+    elif isinstance(obj, dict):
+        return {k: safe_date(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [safe_date(v) for v in obj]
+    return obj
