@@ -1,18 +1,18 @@
 runtime:
   N_product_lines: 5
   company: Apple
-  name: Product Profiling Workflow
+  name: Product_Profiling_Workflow
   description: Automated product line research and extraction
-  table_name: product_line_workflow
-  db_file: data/tmp/product_line_workflow.db
-  profile: Curate Company Profile
-  search: Search PLs
-  seed: Seed PL URLs
-  extract: Extract PL information
-  profile_sql: SQL storage (company profile)
-  profile_graph: Graph storage (company profile)
-  pl_sql: SQL storage (PL)
-  pl_graph: Graph storage (PL)
+  table_name: product_profile_workflow
+  db_file: data/tmp/product_profile_workflow.db
+  profile: profile_generate
+  search: PL_search
+  seed: PL_seed_URLs
+  extract: PL_extract
+  profile_sql: profile_SQL_storage
+  profile_graph: profile_graph_storage
+  pl_sql: PL_SQL_storage
+  pl_graph: PL_graph_storage
 
 # --------------------------------------------------------------------------------------
 
@@ -124,8 +124,11 @@ agent_company_profile:
 
     3. The profile will include company name, ticker, CIK, industry, SIC code, location, fiscal year end, exchanges, revenue, and other financial attributes.
 
-    4. Return the output exactly as structured by the response schema. Do not invent data. If fields are unavailable, return them as null or "N/A".
+    4. Return the output exactly as structured by the response schema. If the company website is not known, you **must** make a websearch for it's offical URL. Do not invent data. If fields are unavailable, return them as null.
 
     You must always:
     - Use tools to fetch data; do not attempt to answer from memory.
     - Follow the tool output and schema strictly.
+  model_id: gpt-4.1-mini
+  parser_model_id: gpt-4.1
+  show_tool_calls: true
