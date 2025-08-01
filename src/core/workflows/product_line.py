@@ -1,16 +1,19 @@
 import asyncio
 import json
 import logging
+import os
 from datetime import datetime
 
 from agno.storage.sqlite import SqliteStorage
 from agno.workflow.v2 import Step, Workflow
 from agno.workflow.v2.types import StepInput, StepOutput
+from dotenv import load_dotenv
 from xflow_graph.adapters.arango import ArangoAdapter
 from xflow_graph.models import create_model_instance, generate_document_id
 from xflow_graph.services.graph import GraphService
 
 from core.agents.base import create_agent
+from core.clients.arango import ArangoManager
 from core.clients.sqlite import get_connection
 from core.database.sqlite_db import CompanyDataDB
 from core.models import (
@@ -25,6 +28,7 @@ from core.utils.helpers import load_yaml, save_workflow_output
 from core.utils.logger import setup_logging
 from core.utils.paths import DATA_DIR
 
+load_dotenv()
 setup_logging()
 log = logging.getLogger(__name__)
 
@@ -171,6 +175,12 @@ async def db_storage_step(step_input: StepInput) -> StepOutput:
 
 async def arango_step(step_input: StepInput) -> StepOutput:
     conn = get_connection()  # connect to SQLite
+
+    # Check if the Arango database exists
+    manager = ArangoManager()
+    db_name = os.getenv("ARANGO_DB")
+    if not manager.exists(db_name):
+        manager.create(db_name)
 
     # Initialize Arango adapter and graph service
     adapter = ArangoAdapter.connect()
