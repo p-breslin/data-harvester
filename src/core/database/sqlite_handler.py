@@ -1,6 +1,7 @@
 from typing import Any, Dict
 
 from core.database.sqlite_db import CompanyDataDB
+from core.utils.helpers import safe_date
 
 
 class SqliteStorageHandler:
@@ -28,7 +29,7 @@ class SqliteStorageHandler:
             int: The number of product lines stored.
         """
         self.db.insert_company(product_list["company_name"])  # Ensures company exists
-        self.db.insert_product_lines(product_list)
+        self.db.insert_product_lines(safe_date(product_list))
         return len(product_list["product_lines"])
 
     def store_company_profile(self, profile: Dict[str, Any]) -> None:
@@ -39,4 +40,4 @@ class SqliteStorageHandler:
         Args:
             profile (Dict[str, Any]): A dict representation of a CompanyProfile.
         """
-        self.db.insert_company_profile(profile)
+        self.db.insert_company_profile(safe_date(profile))
