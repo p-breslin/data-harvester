@@ -1,6 +1,7 @@
 import asyncio
 import json
 import logging
+import uuid
 from datetime import datetime
 
 from agno.storage.sqlite import SqliteStorage
@@ -62,10 +63,20 @@ async def profile_step(step_input: StepInput) -> StepOutput:
     trigger = json.dumps({"company": company})
     resp = await profile_agent.arun(trigger)
 
+    # Mutate additional_data so it's available to later steps
+    step_input.additional_data["canonical_name"] = resp.content.company_name
+
+    # Generate UUID for this OrganizationUnit and propagate it through the workflow
+    org_unit_key = str(uuid.uuid4())
+    step_input.additional_data["org_unit_key"] = org_unit_key
+
+    # Serialize the Pydantic model to a JSON string to ensure it's storable.
+    profile_json = resp.content.model_dump_json()
+
     # Process the workflow step
     step_output = StepOutput(
         step_name=cfg["runtime"]["profile"],
-        content=resp.content,
+        content=profile_json,
         success=True,
     )
     save_workflow_output(
@@ -88,7 +99,7 @@ async def search_step(step_input: StepInput) -> StepOutput:
     )
 
     # Run the agent
-    company = step_input.message["company"]
+    company = step_input.additional_data["canonical_name"]
     N = step_input.message["N"]
     trigger = json.dumps({"company": company, "N": N})
     resp = await search_agent.arun(trigger)
@@ -124,11 +135,11 @@ async def seed_step(step_input: StepInput) -> StepOutput:
     products = search_output.products
 
     # Parallel execution - build triggers for each instance of the seed agent
-    triggers = [json.dumps({"domain": domain, "query": [prod]}) for prod in products]
+    triggers = [json.dumps({"domain": domain, "query": [p]}) for p in products]
 
     # Run the agents in parallel
     resp = await asyncio.gather(*(seed_agent.arun(t) for t in triggers))
-    seeded_items = [resp.content for resp in resp]
+    seeded_items = [r.content for r in resp]
     seeded_list = SeededProductLineList(domain=domain, product_line_urls=seeded_items)
 
     # Process workflow step
