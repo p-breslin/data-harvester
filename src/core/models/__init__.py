@@ -7,6 +7,7 @@ from core.models.product_lines import (
 )
 from core.models.products import Product, ProductList
 from core.models.websites import CrawledPage, SeededUrl, SeededUrlList, WebPageList
+from core.models.profile import CompanyProfile
 
 __all__ = [
     "WebPageList",
@@ -20,4 +21,5 @@ __all__ = [
     "ProductLineList",
     "SeededProductLine",
     "SeededProductLineList",
+    "CompanyProfile"
 ]
