@@ -3,9 +3,9 @@ import asyncio
 from agno.agent import Agent
 from agno.models.openai import OpenAIChat
 from dotenv import load_dotenv
-
+from agno.tools.googlesearch import GoogleSearchTools
 from core.models import CompanyProfile
-from core.tools import search_tool, sec_tool
+from core.tools import sec_tool
 from core.utils.logger import setup_logging
 
 load_dotenv()
@@ -21,7 +21,7 @@ instructions = [
 async def main():
     agent = Agent(
         model=OpenAIChat(id="gpt-4.1-mini"),
-        tools=[search_tool, sec_tool],
+        tools=[GoogleSearchTools(), sec_tool],
         description=description,
         instructions=instructions,
         response_model=CompanyProfile,
