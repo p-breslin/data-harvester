@@ -33,6 +33,7 @@ class CompanyDataDB:
                     industry TEXT,
                     location TEXT,
                     sic_code TEXT,
+                    website TEXT,
                     fiscal_year_end TEXT,
                     exchanges TEXT,  -- comma-separated list
                     shares_outstanding INTEGER,
@@ -105,6 +106,7 @@ class CompanyDataDB:
                     industry,
                     location,
                     sic_code,
+                    website,
                     fiscal_year_end,
                     exchanges,
                     shares_outstanding,
@@ -112,7 +114,7 @@ class CompanyDataDB:
                     revenue_value,
                     revenue_period
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
                 (
                     company_id,
@@ -121,6 +123,7 @@ class CompanyDataDB:
                     profile.get("industry"),
                     profile.get("location"),
                     profile.get("sic_code"),
+                    profile.get("website"),
                     profile.get("fiscal_year_end"),
                     exchanges_str,
                     profile.get("shares_outstanding"),
