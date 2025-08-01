@@ -57,6 +57,11 @@ class CompanyProfile(BaseModel):
         description="Headquarters location (city, state or country).",
         example="Cupertino, CA",
     )
+    wensite: Optional[str] = Field(
+        None,
+        description="Official company website URL.",
+        example="https://www.apple.com/",
+    )
     sic_code: Optional[str] = Field(
         None,
         description="Standard Industrial Classification code.",
