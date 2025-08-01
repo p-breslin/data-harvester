@@ -7,6 +7,7 @@ from xflow_graph.services.graph import GraphService
 
 from core.clients.arango import ArangoManager
 from core.clients.sqlite import get_connection
+from core.utils.helpers import safe_date
 
 
 class ArangoStorageHandler:
@@ -38,15 +39,33 @@ class ArangoStorageHandler:
             str: The full ArangoDB `_id` of the upserted OrganizationUnit node.
         """
         row = self.sqlite_conn.execute(
-            "SELECT id, name FROM companies WHERE name = ?", (company_name,)
+            """
+            SELECT
+            companies.id      AS company_id,
+            companies.name    AS company_name,
+            company_profiles.cik
+            FROM companies
+            LEFT JOIN company_profiles
+            ON company_profiles.company_id = companies.id
+            WHERE companies.name = ?
+            """,
+            (company_name,),
         ).fetchone()
+
         if not row:
             raise ValueError(f"Company '{company_name}' not found in SQLite")
-        comp_key = generate_document_id().replace("-", "")[:16]
+
+        cik_key = row["cik"].lstrip("0") if row["cik"] else row["company_id"]
+        comp_key = cik_key
         comp_id = f"OrganizationUnit/{comp_key}"
+
         comp_doc = create_model_instance(
             "OrganizationUnit",
-            {"_key": comp_key, "name": row["name"], "sub_type": "Company"},
+            {
+                "_key": comp_key,
+                "name": row["company_name"],
+                "sub_type": "Company",
+            },
         )
         self.service.upsert_node("OrganizationUnit", comp_doc)
         return comp_id
@@ -72,7 +91,7 @@ class ArangoStorageHandler:
             "industry": profile.get("industry"),
             "location": profile.get("location"),
             "sic_code": profile.get("sic_code"),
-            "fiscal_year_end": profile.get("fiscal_year_end"),
+            "fiscal_year_end": safe_date(profile.get("fiscal_year_end")),
             "exchanges": profile.get("exchanges") or [],
             "shares_outstanding": profile.get("shares_outstanding"),
             "public_float": profile.get("public_float"),
@@ -83,7 +102,7 @@ class ArangoStorageHandler:
             lr = profile["latest_revenue"]
             doc_body["latest_revenue"] = {
                 "value": lr["numeric_value"],
-                "period": lr["period_end"],
+                "period": safe_date(lr["period_end"]),
             }
 
         comp_doc = create_model_instance("OrganizationUnit", doc_body)
@@ -104,7 +123,8 @@ class ArangoStorageHandler:
 
         rows = self.sqlite_conn.execute(
             """
-            SELECT id, name, type, description, category
+            SELECT product_lines.id, product_lines.name, product_lines.type,
+                product_lines.description, product_lines.category
             FROM product_lines
             INNER JOIN companies ON product_lines.company_id = companies.id
             WHERE companies.name = ?
@@ -132,14 +152,7 @@ class ArangoStorageHandler:
                     ),
                 }
             )
-            edge = create_model_instance(
-                "PartOfProduct",
-                {"source_id": comp_id, "target_id": prod_id},
-                is_edge=True,
-            ).model_dump()
-            edge_docs.append(
-                {**edge, "_from": edge["source_id"], "_to": edge["target_id"]}
-            )
+            edge_docs.append({"_from": comp_id, "_to": prod_id})
 
         self.service.batch_upsert_nodes(node_ops, use_transaction=False)
         self.service.link_edges("PartOfProduct", edge_docs)
