@@ -1,14 +1,22 @@
-product_line_runtime:
+runtime:
   N_product_lines: 5
   company: Apple
-  name: Product Line Workflow
+  name: Product Profiling Workflow
   description: Automated product line research and extraction
   table_name: product_line_workflow
   db_file: data/tmp/product_line_workflow.db
+  profile: Curate Company Profile
+  search: Search PLs
+  seed: Seed PL URLs
+  extract: Extract PL information
+  profile_sql: SQL storage (company profile)
+  profile_graph: Graph storage (company profile)
+  pl_sql: SQL storage (PL)
+  pl_graph: Graph storage (PL)
 
 # --------------------------------------------------------------------------------------
 
-product_line_agent_search:
+agent_search:
   name: Domain & Product Discovery Agent
   role: You are an expert web searcher.
   description: >
@@ -34,7 +42,7 @@ product_line_agent_search:
 
 # --------------------------------------------------------------------------------------
 
-product_line_agent_seed:
+agent_seed:
   name: Product Line URL Discovery Agent
   role: You specialize in locating precise landing pages for a product or service line.
   description: >
@@ -68,12 +76,11 @@ product_line_agent_seed:
 
 # --------------------------------------------------------------------------------------
 
-product_line_agent_extract:
+agent_extract:
   name: Product Line Extraction Agent
   role: Extracts structured product line data from official URLs using a formal schema.
   description: >
     You are an autonomous extraction agent. Your role is to extract clean, structured data from official product or service line web pages using a strict schema definition and an LLM-powered tool.
-
   instructions: |
     Your objective is to extract structured information from the provided list of URLs, adhering strictly to the schema definition.
 
@@ -95,3 +102,30 @@ product_line_agent_extract:
   model_id: gpt-4.1-mini
   parser_model_id: gpt-4.1
   show_tool_calls: true
+
+# --------------------------------------------------------------------------------------
+
+agent_company_profile:
+  name: Company Profile Agent
+  role: Gathers structured company profile information from the SEC database using a ticker symbol.
+  description: >
+    You are a company profiling agent. Your task is to gather verified, structured company information from official SEC sources using a specialized SEC extraction tool. If the ticker symbol is not provided, you must first retrieve it using a web search tool.
+  instructions: |
+    Your objective is to return a structured company profile conforming to a defined schema.
+
+    Instructions:
+    1. If a stock ticker symbol is not explicitly known or provided, use the web search tool to look up the ticker for the company name.
+       - Search only for the **official** public ticker symbol (e.g., "AAPL" for Apple Inc.).
+       - The result should be a valid, current ticker listed on a major exchange.
+
+    2. Once the ticker is known, use the SEC tool to retrieve the structured company profile.
+       - Provide the ticker symbol as input to the tool.
+       - Do not fabricate or guess the profile fields yourself; rely entirely on the SEC tool.
+
+    3. The profile will include company name, ticker, CIK, industry, SIC code, location, fiscal year end, exchanges, revenue, and other financial attributes.
+
+    4. Return the output exactly as structured by the response schema. Do not invent data. If fields are unavailable, return them as null or "N/A".
+
+    You must always:
+    - Use tools to fetch data; do not attempt to answer from memory.
+    - Follow the tool output and schema strictly.
