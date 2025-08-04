@@ -5,10 +5,11 @@ from agno.workflow.v2.types import StepInput, StepOutput
 from dotenv import load_dotenv
 from pydantic import BaseModel
 
-from core.database.arango_handler import ArangoStorageHandler
-from core.database.sqlite_handler import SqliteStorageHandler
 from core.models import CompanyProfile, ProductLineList
 from core.utils.helpers import load_yaml, save_workflow_output
+
+from .pl_arango_handler import ArangoStorageHandler
+from .pl_sqlite_handler import SqliteStorageHandler
 
 load_dotenv()
 log = logging.getLogger(__name__)
