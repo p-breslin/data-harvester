@@ -2,7 +2,7 @@ import logging
 
 from agno.workflow.v2.types import StepInput, StepOutput
 
-from core.models.payloads import NodePayloadList
+from core.models import NodePayloadList
 
 from .graph_handler import GraphStorageHandler
 from .sql_handler import InternalDB
@@ -57,7 +57,7 @@ async def store_graph_step(step_input: StepInput, step_name: str) -> StepOutput:
     handler = GraphStorageHandler(sql_handler)
 
     try:
-        handler.store_subgraph(step_input.additional_data("canonical_name"))
+        handler.store_subgraph(step_input.additional_data["canonical_name"])
         log.info("Successfully stored entities in the graph.")
     except Exception as e:
         log.error(f"An error occurred during graph storage: {e}", exc_info=True)
