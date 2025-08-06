@@ -1,6 +1,7 @@
 import asyncio
 import logging
 from datetime import datetime
+from functools import partial
 
 from agno.storage.sqlite import SqliteStorage
 from agno.workflow.v2 import Step, Workflow
@@ -52,24 +53,42 @@ async def main():
     product_workflow = Workflow(
         name=rt["name"],
         description=rt["description"],
-        storage=SqliteStorage(
-            table_name=rt["table_name"],
-            db_file=rt["db_file"],
-            mode="workflow_v2",
-        ),
+        # storage=SqliteStorage(
+        #     table_name=rt["table_name"],
+        #     db_file=rt["db_file"],
+        #     mode="workflow_v2",
+        # ),
         steps=[
             # Company Profile Sub-flow
             Step(name=rt["profile"], executor=profile_step),
-            Step(name=rt["transform"], executor=transform_step),
-            Step(name=rt["sql_db"], executor=store_sql_step(rt["sql_db"])),
-            Step(name=rt["graph_db"], executor=store_graph_step(rt["graph_db"])),
+            Step(
+                name=rt["transform_profile"],
+                executor=partial(transform_step, step_name=rt["transform_profile"]),
+            ),
+            Step(
+                name=rt["sql_db_profile"],
+                executor=partial(store_sql_step, step_name=rt["sql_db_profile"]),
+            ),
+            Step(
+                name=rt["graph_db_profile"],
+                executor=partial(store_graph_step, step_name=rt["graph_db_profile"]),
+            ),
             # Product Line Sub-flow
             Step(name=rt["search"], executor=search_step),
             Step(name=rt["seed"], executor=seed_step),
             Step(name=rt["extract"], executor=extract_step),
-            Step(name=rt["transform"], executor=transform_step),
-            Step(name=rt["sql_db"], executor=store_sql_step(rt["sql_db"])),
-            Step(name=rt["graph_db"], executor=store_graph_step(rt["graph_db"])),
+            Step(
+                name=rt["transform_PL"],
+                executor=partial(transform_step, step_name=rt["transform_PL"]),
+            ),
+            Step(
+                name=rt["sql_db_PL"],
+                executor=partial(store_sql_step, step_name=rt["sql_db_PL"]),
+            ),
+            Step(
+                name=rt["graph_db_PL"],
+                executor=partial(store_graph_step, step_name=rt["graph_db_PL"]),
+            ),
         ],
     )
     trigger = {"company": rt["company"], "N": rt["N_product_lines"]}
