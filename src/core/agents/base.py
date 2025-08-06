@@ -17,8 +17,8 @@ def get_model(model_id: str):
 def create_agent(
     *,
     cfg: Dict[str, Any],
-    tools: List[Any],
-    response_model: BaseModel,
+    tools: List[Any] = None,
+    response_model: BaseModel = None,
 ) -> Agent:
     """Creates a configured Agno agent from config dictionary.
 
