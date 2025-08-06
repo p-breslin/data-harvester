@@ -5,13 +5,20 @@ runtime:
   description: Automated product line research and extraction
   table_name: product_profile_workflow
   db_file: data/tmp/product_profile_workflow.db
+
   profile: profile_generate
   search: PL_search
   seed: PL_seed_URLs
   extract: PL_extract
-  transform: transform_data
-  sql_db: SQL_storage
-  graph_db: graph_storage
+
+  transform_profile: transform_profile_data
+  transform_PL: transform_PL_data
+
+  sql_db_profile: profile_SQL_storage
+  graph_db_profile: profile_graph_storage
+
+  sql_db_PL: PL_SQL_storage
+  graph_db_PL: PL_graph_storage
 
 # --------------------------------------------------------------------------------------
 
@@ -21,6 +28,10 @@ agent_search:
   description: >
     Given a company name, your job is to find the official domain and list the most popular N (user defined number) of products or services they offer.
   instructions: |
+    You are provided:
+       - `company_name`: the name of the company to be used in your task.
+       - `N`: the number of product lines to search for and parse in your task.
+
     1. Use the search tool to find the company's official website.
     2. Infer and extract the official root domain (e.g. example.com).
     3. From the search results, identify the latest N flagship **product or service lines** offered by the company.
@@ -36,7 +47,7 @@ agent_search:
         "products": ["Product/Service Line A", "Product/Service Line B", ...]
       }
   model_id: gpt-4.1-mini
-  parser_model_id: gpt-4.1-nano
+  parser_model_id: gpt-4.1-mini
   show_tool_calls: true
 
 # --------------------------------------------------------------------------------------
@@ -70,7 +81,7 @@ agent_seed:
         "url": "<selected canonical URL>"  // or null if none found
       }
   model_id: gpt-4.1-mini
-  parser_model_id: gpt-4.1-nano
+  parser_model_id: gpt-4.1-mini
   show_tool_calls: true
 
 # --------------------------------------------------------------------------------------
@@ -86,8 +97,9 @@ agent_extract:
     Instructions:
     1. Use the tool available to extract data directly from the pages. Do not interpret or summarize content yourself.
     2. You are provided:
-       - `urls`: a list of web pages to process
-       - `schema`: a JSON schema (Pydantic format) describing the expected data structure
+       - `urls`: a list of web pages to process.
+       - `schema_json`: a JSON schema (Pydantic format) describing the expected data structure.
+       - `company_name`: the canonical name of the company to be used in your output.
 
     3. The schema defines the fields to extract, their types, and descriptions. The tool will use it precisely to guide your extraction.
 
@@ -99,7 +111,7 @@ agent_extract:
 
     Do not perform extraction yourself. The tool handles crawling, parsing, and schema-matching.
   model_id: gpt-4.1-mini
-  parser_model_id: gpt-4.1
+  parser_model_id: gpt-4.1-mini
   show_tool_calls: true
 
 # --------------------------------------------------------------------------------------
@@ -129,7 +141,7 @@ agent_company_profile:
     - Use tools to fetch data; do not attempt to answer from memory.
     - Follow the tool output and schema strictly.
   model_id: gpt-4.1-mini
-  parser_model_id: gpt-4.1
+  parser_model_id: gpt-4.1-mini
   show_tool_calls: true
 
 # --------------------------------------------------------------------------------------
@@ -216,7 +228,7 @@ agent_transform_HL:
     - Be consistent with your `entity_type` naming.
     - Your entire output MUST be a single valid JSON object: `{"payloads": [...]}`. Do not output anything else.
   model_id: gpt-4.1-mini
-  parser_model_id: gpt-4.1-nano
+  parser_model_id: gpt-4.1-mini
 
 # --------------------------------------------------------------------------------------
 
@@ -259,6 +271,14 @@ agent_transform:
     If no match is found, default to:
     - node_type: "CustomEntity"
     - sub_type: Custom
+
+    --- SINGLE VS MULTI-PAYLOAD LOGIC ---
+    - If the input is a single top-level object (e.g., `{"Company profile": {...}}`), you must emit exactly one payload for it.
+    - You must not split a single entity into multiple payloads unless the input is explicitly a list of distinct items.
+    - For example:
+        - A single CompanyProfile → one payload with node_type: OrganizationUnit
+        - A list of ProductLine → one payload per item
+    - Only create multiple payloads if the input contains multiple independently named entities.
 
     --- RELATIONSHIPS ---
     Use directional edges to represent relationships between nodes.
