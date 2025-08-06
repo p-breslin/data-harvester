@@ -82,7 +82,7 @@ async def pl_sql_storage(step_input: StepInput) -> StepOutput:
     handler = SqliteStorageHandler()
     count = handler.store_product_lines(
         {
-            "company_name": res.company_name,
+            "company_name": step_input.additional_data["canonical_name"],
             "product_lines": [pl.model_dump() for pl in res.product_lines],
         }
     )
@@ -101,7 +101,7 @@ async def pl_graph_storage(step_input: StepInput) -> StepOutput:
 
     The product lines are fetched from the SQLite database and stored in the graph using PartOfProduct edges connecting them to the OrganizationUnit representing the company.
     """
-    company_name = step_input.additional_data["company_name"]
+    company_name = step_input.additional_data["canonical_name"]
     handler = ArangoStorageHandler()
 
     key = step_input.additional_data["org_unit_key"]
