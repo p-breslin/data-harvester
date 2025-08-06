@@ -89,6 +89,7 @@ class GraphStorageHandler:
             try:
                 existing = self.ctx_mgr.get(doc_id)
             except Exception:
+                log.warning(f"Context lookup failed for {doc_id}. Creating record...")
                 existing = None
 
             if existing:
