@@ -55,7 +55,7 @@ def search_tool(query: str) -> str:
             entry = {
                 "url": result.get("url", ""),
                 "title": result.get("title", ""),
-                "content": result.get("content", ""),
+                "content": result.get("content", "")[:250],
             }
             search_log.debug(json.dumps(entry, indent=2))
             results.append(entry)
