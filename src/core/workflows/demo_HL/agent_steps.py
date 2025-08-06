@@ -145,7 +145,13 @@ async def extract_step(step_input: StepInput) -> StepOutput:
     schema_json = json.dumps(ProductLine.model_json_schema(), indent=2)
 
     # Run the agent
-    trigger = json.dumps({"urls": urls, "schema_json": schema_json})
+    trigger = json.dumps(
+        {
+            "urls": urls,
+            "schema_json": schema_json,
+            "company_name": step_input.additional_data["canonical_name"],
+        }
+    )
     resp = await extract_agent.arun(trigger)
 
     # Process workflow step
@@ -161,7 +167,7 @@ async def extract_step(step_input: StepInput) -> StepOutput:
     return step_output
 
 
-async def transform_step(step_input: StepInput) -> StepOutput:
+async def transform_step(step_input: StepInput, step_name: str) -> StepOutput:
     """Transforms scraped data into the correct format for SQL storage.
 
     This step passes the raw scraped data object to an agent who transforms it into a list of schemas according to NodePayload for insertion into the SQL database.
@@ -173,16 +179,22 @@ async def transform_step(step_input: StepInput) -> StepOutput:
         cfg=cfg["agent_transform"],
         response_model=NodePayloadList,
     )
-    trigger = raw_data_object.model_dump_json()  # raw data object JSON serialized
+    trigger = raw_data_object.model_dump_json(indent=2)  # JSON serialized
     resp = await transform_agent.arun(trigger)
 
-    log.info("Transformed data into %d payloads.", len(resp.content.payloads))
-    log.debug("Transformed data:\n%s", resp.content.model_dump_json(indent=2))
+    # Hydrate into the expected model
+    if isinstance(resp.content, dict):
+        content = NodePayloadList(**resp.content)
+    else:
+        content = resp.content
+
+    log.info("Transformed data into %d payloads.", len(content.payloads))
+    log.debug("Transformed data:\n%s", content.model_dump_json(indent=2))
 
     # Process workflow step
     step_output = StepOutput(
-        step_name=cfg["runtime"]["transform"],
-        content=resp.content,
+        step_name=step_name,
+        content=content,
         success=True,
     )
     save_workflow_output(
