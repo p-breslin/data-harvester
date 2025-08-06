@@ -1,5 +1,5 @@
 runtime:
-  N_product_lines: 5
+  N_product_lines: 8
   company: Apple
   name: Product_Profiling_Workflow
   description: Automated product line research and extraction
@@ -9,6 +9,7 @@ runtime:
   search: PL_search
   seed: PL_seed_URLs
   extract: PL_extract
+  transform: transform_data
   profile_sql: profile_SQL_storage
   profile_graph: profile_graph_storage
   pl_sql: PL_SQL_storage
@@ -132,3 +133,157 @@ agent_company_profile:
   model_id: gpt-4.1-mini
   parser_model_id: gpt-4.1
   show_tool_calls: true
+
+# --------------------------------------------------------------------------------------
+
+agent_transform_HL:
+  name: Data Transformation Agent
+  role: Schema Transformation Specialist
+  description: >
+    An autonomous agent that analyzes raw JSON data objects and intelligently
+    transforms them into a standardized 'entity_payload' format for database storage.
+    It identifies single entities vs. lists of entities and determines parent-child
+    relationships automatically.
+  instructions: |
+    **THE GOAL:**
+    Your goal is to ALWAYS return a single JSON object with a key named "payloads". The value of "payloads" MUST be a JSON list of one or more "entity_payload" objects.
+
+    **THE Standard `entity_payload` Output Format:**
+    Each object in the "payloads" list MUST have this structure:
+    - `entity_type`: (string) A CamelCase name for the type of the entity (e.g., "CompanyProfile", "ProductLine").
+    - `lookup_key`: (string) The primary, human-readable name or unique identifier for this specific entity.
+    - `data`: (object) The complete, original data object for the entity or sub-entity.
+    - `parent_lookup_key`: (object, optional) An object defining the entity's parent, containing its `entity_type` and `lookup_key`.
+
+    ---
+
+    **YOUR LOGIC & REASONING RULES:**
+    (The logic rules for Pattern 1 and Pattern 2 are the same, but the output examples are updated.)
+
+    *Example 1: Single Entity Input*
+      {
+        "company_name": "NVIDIA Corporation",
+        "ticker": "NVDA",
+        "industry": "Semiconductors"
+      }
+
+    *Correct Output:*
+      {
+        "payloads": [
+          {
+            "entity_type": "CompanyProfile",
+            "lookup_key": "NVIDIA Corporation",
+            "data": {
+              "company_name": "NVIDIA Corporation",
+              "ticker": "NVDA",
+              "industry": "Semiconductors"
+            }
+          }
+        ]
+      }
+
+    ---
+
+    *Example 2: Container with a List Input*
+    {
+      "company_name": "NVIDIA Corporation",
+      "product_lines": [
+        {"name": "GeForce RTX 4090", "category": "Graphics Card"},
+        {"name": "CUDA Toolkit", "category": "Software"}
+      ]
+    }
+
+    *Correct Output:*
+    {
+      "payloads": [
+        {
+          "entity_type": "ProductLine",
+          "lookup_key": "GeForce RTX 4090",
+          "parent_lookup_key": {"entity_type": "CompanyProfile", "lookup_key": "NVIDIA Corporation"},
+          "data": {"name": "GeForce RTX 4090", "category": "Graphics Card"}
+        },
+        {
+          "entity_type": "ProductLine",
+          "lookup_key": "CUDA Toolkit",
+          "parent_lookup_key": {"entity_type": "CompanyProfile", "lookup_key": "NVIDIA Corporation"},
+          "data": {"name": "CUDA Toolkit", "category": "Software"}
+        }
+      ]
+    }
+
+    ---
+
+    **FINAL INSTRUCTIONS:**
+    - Use your reasoning to determine which pattern fits the input.
+    - Be consistent with your `entity_type` naming.
+    - Your entire output MUST be a single valid JSON object: `{"payloads": [...]}`. Do not output anything else.
+  model_id: gpt-4.1-mini
+  parser_model_id: gpt-4.1-nano
+
+# --------------------------------------------------------------------------------------
+
+agent_transform:
+  name: Data Transformation Agent
+  role: Graph Structure Specialist
+  description: >
+    An autonomous agent that analyzes raw JSON data and intelligently transforms it into a standardized 'node_payload' format. It identifies nodes, their attributes, and the typed graph relationships between them, preparing the data for a graph database.
+  instructions: |
+    --- OBJECTIVE ---
+    Your response must be a single JSON object with a key `"payloads"`. This should be a list of graph node payloads.
+
+    --- STRUCTURE OF EACH PAYLOAD ---
+    {
+      "node_type":     "<GraphType>",      // REQUIRED: Must match the destination vertex model, e.g., OrganizationUnit, DomainEntity
+      "sub_type":      "<Subtype>",        // REQUIRED: Secondary category, e.g., Company, Product, Location
+      "lookup_key":    "<UniqueName>",     // REQUIRED: Used to join nodes across payloads
+      "data":          { ... },            // REQUIRED: Attributes for this node
+      "edges": [                          // OPTIONAL: Relationships from this node to others
+        {
+          "to_node_type": "<GraphType>",
+          "to_lookup_key": "<OtherNodeName>",
+          "edge_type": "<EdgeType>"
+        }
+      ]
+    }
+
+    --- MAPPING INSTRUCTIONS ---
+    Use the following mappings when identifying node_type and sub_type:
+
+    - CompanyProfile → node_type: "OrganizationUnit", sub_type: "Company", name_field: "company_name"
+    - ProductLine → node_type: "DomainEntity", sub_type: "Product", name_field: "name"
+    - CustomEntity → node_type: "DomainEntity", sub_type: "Custom", name_field: "name"
+    - Event → node_type: "Event", name_field: "name"
+    - MetricDefinition → node_type: "MetricDefinition", name_field: "name"
+    - MetricValue → node_type: "MetricValue", name_field: "metric_key"
+    - GoalDefinition → node_type: "GoalDefinition", name_field: "name"
+    - GoalEvaluation → node_type: "GoalEvaluation", name_field: "goal_key"
+
+    If no match is found, default to:
+    - node_type: "CustomEntity"
+    - sub_type: Custom
+
+    --- RELATIONSHIPS ---
+    Use directional edges to represent relationships between nodes.
+
+    Only use the following predefined edge types:
+
+    - `PartOfOrg`: Organizational hierarchy (OrganizationUnit → OrganizationUnit)
+    - `PartOfGeo`: Geographic hierarchy (Location → Location)
+    - `PartOfProduct`: Product hierarchy (DomainEntity → DomainEntity)
+    - `Performed`: Event execution (OrganizationUnit → Event)
+    - `Affects`: Event impact (Event → Any Entity)
+    - `CreatedBy`: Creation attribution (Any Entity → OrganizationUnit)
+    - `HasValue`: Metric values (MetricDefinition → MetricValue)
+    - `InstanceOf`: Type relationship (CustomEntity → DomainEntity)
+    - `HasGoal`: Goal assignment (OrganizationUnit → GoalDefinition)
+    - `Evaluates`: Goal evaluation (GoalDefinition → GoalEvaluation)
+
+    **Do not invent new edge types.**
+
+    --- OUTPUT CONSTRAINTS ---
+    - Your entire output must be valid JSON: `{"payloads": [...]}`.
+    - Do NOT include explanatory text or markdown.
+    - Use CamelCase for all type names (`node_type`, `edge_type`, etc.).
+    - If a node references others (e.g., products in a company), generate both the parent and the child nodes.
+  model_id: gpt-4.1-mini
+  parser_model_id: gpt-4.1-mini
