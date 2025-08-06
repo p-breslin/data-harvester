@@ -308,10 +308,8 @@ def save_workflow_output(
         filename = f"{prefix}{safe_step_name}_output.json"
 
     # Convert content to JSON string
-    if hasattr(step_output.content, "model_dump_json"):
+    if isinstance(step_output.content, BaseModel):
         content = step_output.content.model_dump_json(indent=2)
-    elif hasattr(step_output.content, "model_dump"):
-        content = json.dumps(step_output.content.model_dump(), indent=2)
     else:
         content = json.dumps(step_output.content, indent=2, default=str)
 
