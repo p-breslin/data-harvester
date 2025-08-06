@@ -1,13 +1,14 @@
-from core.models.product_lines import (
+from .payloads import EdgePayload, NodePayload, NodePayloadList
+from .product_lines import (
     DomainProducts,
     ProductLine,
     ProductLineList,
     SeededProductLine,
     SeededProductLineList,
 )
-from core.models.products import Product, ProductList
-from core.models.websites import CrawledPage, SeededUrl, SeededUrlList, WebPageList
-from core.models.profile import CompanyProfile
+from .products import Product, ProductList
+from .profile import CompanyProfile
+from .websites import CrawledPage, SeededUrl, SeededUrlList, WebPageList
 
 __all__ = [
     "WebPageList",
@@ -21,5 +22,8 @@ __all__ = [
     "ProductLineList",
     "SeededProductLine",
     "SeededProductLineList",
-    "CompanyProfile"
+    "CompanyProfile",
+    "EdgePayload",
+    "NodePayload",
+    "NodePayloadList",
 ]
