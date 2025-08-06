@@ -53,6 +53,7 @@ class CustomFormatter(logging.Formatter):
 def setup_logging(
     level: int = logging.INFO,
     stream: bool = True,
+    save: bool = False,
     label: str = None,
 ) -> None:
     """Configures the root logger with a custom formatter and optional file output.
@@ -62,7 +63,9 @@ def setup_logging(
     Args:
         level (int): Minimum log level to process (default: INFO).
         stream (bool): If True, logs are written to stdout.
-        label: (str, ptional): If provided, save logs to file using label as prefix.
+        save: (str): If provided, save logs to file.
+        label: (str): If provided, logs are saved to file using the label as prefix.
+
     """
     root_logger = logging.getLogger()
 
@@ -79,27 +82,25 @@ def setup_logging(
         stream_handler.setFormatter(formatter)
         root_logger.addHandler(stream_handler)
 
-    # Always save logs to file
-    timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    if label:
-        log_name = f"{label}_{timestamp}.log"
-    else:
-        log_name = f"logs_{timestamp}.log"
+    # File handler only if save=True
+    if save:
+        timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        name = f"{label}_{timestamp}.log" if label else f"logs_{timestamp}.log"
+        savepath = DATA_DIR / "logs" / name
+        savepath.parent.mkdir(parents=True, exist_ok=True)
 
-    savepath = DATA_DIR / "logs" / log_name
-    savepath.parent.mkdir(parents=True, exist_ok=True)
+        fh = logging.FileHandler(savepath, mode="a", encoding="utf-8")
+        fh.setFormatter(formatter)
+        root_logger.addHandler(fh)
 
-    file_handler = logging.FileHandler(savepath, mode="a", encoding="utf-8")
-    file_handler.setFormatter(formatter)
-    root_logger.addHandler(file_handler)
+    root_logger.setLevel(level)
 
     # Minimum level of logs to process
     root_logger.setLevel(level)
 
     # Quieten noisy libraries
-    logging.getLogger("urllib3").setLevel(logging.WARNING)
-    logging.getLogger("httpx").setLevel(logging.WARNING)
-    logging.getLogger("httpcore").setLevel(logging.WARNING)
+    for lib in ("urllib3", "httpx", "httpcore"):
+        logging.getLogger(lib).setLevel(logging.WARNING)
 
     # Use a special logger name to avoid the verbose format for this one message
     logging.getLogger("setup_logger").info(
@@ -108,32 +109,33 @@ def setup_logging(
 
 
 def log_tools(
-    tool_name: str,
-    level: int = logging.DEBUG,
+    tool_name: str, level: int = logging.DEBUG, save: bool = True, label: str = None
 ) -> logging.Logger:
     """Tool-specific logger that writes detailed debug logs to a file.
 
     Args:
         tool_name (str): Unique name for the tool logger (e.g., 'extract_tool').
-        leve (int): Minimum log level for this logger (default: DEBUG).
+        level (int): Minimum log level for this logger (default: DEBUG).
+        save: (str): If provided, save logs to file.
+        label: (str): If provided, logs are saved to file using the label as prefix.
 
     Returns:
         Configured Logger instance for the tool.
     """
     logger = logging.getLogger(f"tools.{tool_name}")
     logger.setLevel(level)
+    logger.propagate = False  # no console output
 
-    # Prevent propagation to root (i.e., no console output)
-    logger.propagate = False
-
-    # Attach file handler only if none exist
-    if not logger.handlers:
+    # Only attach file handler if requested
+    if save and not any(isinstance(h, logging.FileHandler) for h in logger.handlers):
         timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        filename = f"{tool_name}_{timestamp}.log"
+        prefix = f"{label}_" if label else ""
+        filename = f"{prefix}{tool_name}_{timestamp}.log"
         savepath = DATA_DIR / "logs" / "tools" / filename
         savepath.parent.mkdir(parents=True, exist_ok=True)
 
-        file_handler = logging.FileHandler(savepath, mode="a", encoding="utf-8")
-        file_handler.setFormatter(CustomFormatter())
-        logger.addHandler(file_handler)
+        fh = logging.FileHandler(savepath, mode="a", encoding="utf-8")
+        fh.setFormatter(CustomFormatter())
+        logger.addHandler(fh)
+
     return logger
