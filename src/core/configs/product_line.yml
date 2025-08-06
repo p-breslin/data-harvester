@@ -1,5 +1,5 @@
 runtime:
-  N_product_lines: 8
+  N_product_lines: 5
   company: Apple
   name: Product_Profiling_Workflow
   description: Automated product line research and extraction
@@ -10,10 +10,8 @@ runtime:
   seed: PL_seed_URLs
   extract: PL_extract
   transform: transform_data
-  profile_sql: profile_SQL_storage
-  profile_graph: profile_graph_storage
-  pl_sql: PL_SQL_storage
-  pl_graph: PL_graph_storage
+  sql_db: SQL_storage
+  graph_db: graph_storage
 
 # --------------------------------------------------------------------------------------
 
