@@ -57,7 +57,7 @@ class CompanyProfile(BaseModel):
         description="Headquarters location (city, state or country).",
         example="Cupertino, CA",
     )
-    wensite: Optional[str] = Field(
+    website: Optional[str] = Field(
         None,
         description="Official company website URL.",
         example="https://www.apple.com/",
